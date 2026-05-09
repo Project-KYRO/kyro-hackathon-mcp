@@ -1,92 +1,76 @@
 # Deploy + 운영 가이드
 
-## 1. 외부 자원 (~5분)
+## 시크릿 위치 — Doppler
 
-### Upstash Redis (per-token rate limit)
-- https://console.upstash.com → Sign up
-- Create Database → Name `kyro-hackathon` / Type `Regional` / Region **Tokyo (ap-northeast-1)**
-- "REST API" 탭에서 두 값 복사: `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`
+Doppler project: **`kyro-hackathon-mcp`** / config: **`prd`**
 
-### PEPPER 생성
-```bash
-openssl rand -base64 32
-```
-출력 32 글자 복사. **이 값은 vercel env 와 admin script 양쪽 다 동일하게 사용**해야 함 (다르면 token 검증 실패).
+이미 등록된 secret (Claude 가 자동 등록):
 
-## 2. Vercel 배포
-
-dashboard 에서:
-1. https://vercel.com/new → kyro team 선택
-2. `Project-KYRO/kyro-hackathon-mcp` Import
-3. Configure Project → Environment Variables 6개 입력:
-
-| Name | Value |
+| Name | 출처 |
 |---|---|
-| `SUPABASE_URL` | `https://zkjpqbhmsvbibygemqfb.supabase.co` |
-| `SUPABASE_SERVICE_ROLE_KEY` | doppler `prd` 의 `SUPABASE_SERVICE_ROLE_KEY_` 값 |
-| `UPSTASH_REDIS_REST_URL` | 위 Phase 1 |
-| `UPSTASH_REDIS_REST_TOKEN` | 위 Phase 1 |
-| `PAT_HASH_PEPPER` | 위 Phase 1 |
+| `SUPABASE_URL` | doppler kyro-frontend/prd 에서 복사 |
+| `SUPABASE_SERVICE_ROLE_KEY` | 위와 동일 (이름 typo `_` 정정) |
+| `PAT_HASH_PEPPER` | `openssl rand -base64 32` 자동 생성 |
 | `HACKATHON_PAT_EXPIRES_AT` | `2026-05-11T20:00:00+09:00` |
+| `NEXT_PUBLIC_BASE_URL` | `https://kyro-hackathon-mcp.vercel.app` (deploy 후 업데이트) |
 
-4. Deploy → 발급된 URL 메모
-5. Settings → Env → `NEXT_PUBLIC_BASE_URL` 추가 = 위 URL → Redeploy
+값 확인:
+```bash
+doppler secrets --project kyro-hackathon-mcp --config prd --only-names
+```
 
-## 3. 토큰 일괄 발급 (admin script)
+## Vercel 배포 — 두 옵션
 
-본인 노트북에서:
+### 옵션 A: Doppler-Vercel integration (가장 깔끔, 권장)
+
+1. Doppler dashboard → **Integrations** → **Vercel**
+2. OAuth 1회 (Vercel team 선택)
+3. Doppler project `kyro-hackathon-mcp` / config `prd` ↔ Vercel project `kyro-hackathon-mcp` 연결
+4. Vercel 자동 빌드 (GitHub integration 이 push 마다 트리거)
+
+장점: Doppler 가 SSOT. secret 변경 시 Vercel 자동 sync.
+
+### 옵션 B: VERCEL_TOKEN 으로 CLI 자동화
+
+1. https://vercel.com/account/settings/tokens 에서 token 발급 (이름 자유, full scope)
+2. 발급된 token 을 `VERCEL_TOKEN` env 로 export 하면 Claude 가 vercel CLI 로 link + env 입력 + deploy 자동
+
+## 토큰 일괄 발급 (admin script)
+
+본인 노트북에서 doppler run 으로 한 번에:
 
 ```bash
 cd ~/Desktop/KYRO/kyro-hackathon-mcp
 
-# Vercel env 그대로 가져오기 — Vercel CLI 없으면 dashboard 에서 복사
-export SUPABASE_URL="https://zkjpqbhmsvbibygemqfb.supabase.co"
-export SUPABASE_SERVICE_ROLE_KEY="<dashboard 에서 복사>"
-export PAT_HASH_PEPPER="<dashboard 에서 복사 — vercel 과 동일해야 함>"
-export HACKATHON_PAT_EXPIRES_AT="2026-05-11T20:00:00+09:00"
-
-# 참가자 email 리스트 — 한 줄에 하나
+# 참가자 email 리스트
 cat > emails.csv <<'CSV'
-email
 alice@example.com
 bob@example.com
 charlie@example.com
 CSV
 
-pnpm install        # 처음 한 번만
-pnpm issue-pat emails.csv
+# Doppler 가 PEPPER / SUPABASE_* 를 process env 로 주입 → script 가 그걸로 발급
+doppler run --project kyro-hackathon-mcp --config prd -- pnpm issue-pat emails.csv
 ```
 
-출력:
-```
-✓ alice@example.com → kyro_pat_xxxxxxxxxxxxxxxxxx
-✗ bob@example.com — not in KYRO (가입 X 또는 다른 email)
-✓ charlie@example.com → kyro_pat_yyyyyyyyyyyyyyyyyy
-
-=== summary ===
-issued:        2
-user_not_found: 1
-failed:        0
-output:        emails_tokens.csv
-```
-
-`emails_tokens.csv` 의 row 별로 **token + endpoint URL + Claude Desktop config** 를 카톡/메일/슬랙 으로 회신.
+출력 `emails_tokens.csv` 의 row 별로 카톡/메일 회신.
 
 ### 회신 템플릿 (한 명당)
 
 ```
-[KYRO Hackathon] API 토큰
-- token: kyro_pat_xxxxxxxxxxxxxxxx
-- 만료: 2026-05-11 20:00
-- REST: https://kyro-hackathon-mcp.vercel.app/api/v1
-- MCP: https://kyro-hackathon-mcp.vercel.app/api/mcp
-- README + 예제: https://github.com/Project-KYRO/kyro-hackathon-mcp
+[KYRO Hackathon] 본인 API 토큰입니다
+
+🔑 token: kyro_pat_xxxxxxxxxxxxxxxx
+⏰ 만료: 2026-05-11 20:00
+
+REST: https://kyro-hackathon-mcp.vercel.app/api/v1
+MCP:  https://kyro-hackathon-mcp.vercel.app/api/mcp
 
 cURL 빠른 시작:
 curl -H "Authorization: Bearer kyro_pat_xxx" \
   https://kyro-hackathon-mcp.vercel.app/api/v1/runs?limit=10
 
-Claude Desktop:
+Claude Desktop 설정:
 {
   "mcpServers": {
     "kyro": {
@@ -95,25 +79,28 @@ Claude Desktop:
     }
   }
 }
+
+가이드: https://github.com/Project-KYRO/kyro-hackathon-mcp
 ```
 
-## 4. 본인 e2e 검증
+## 본인 e2e 검증
 
 ```bash
-export KYRO_PAT=kyro_pat_xxxxx     # 본인 token 으로
-export KYRO_BASE_URL=https://<deployment>
+# 본인 token 발급
+echo "jeongwoo@kyro.team" > test.csv
+doppler run --project kyro-hackathon-mcp --config prd -- pnpm issue-pat test.csv
+
+# 발급된 token 으로 smoke
+export KYRO_PAT="kyro_pat_xxx"
+export KYRO_BASE_URL=https://kyro-hackathon-mcp.vercel.app
 ./examples/curl-smoke.sh
 ```
 
-5 endpoint + MCP tools/list + tools/call 모두 통과해야 함.
-
-Claude Desktop config 도 본인 토큰으로 등록해 두고 자연어 호출 시도.
-
-## 5. 행사 후 sunset
+## 행사 후 sunset
 
 ### 토큰 일괄 무효
 ```bash
-doppler run --config prd -- bash -c '
+doppler run --config prd --project kyro-frontend -- bash -c '
   ref=$(echo "$SUPABASE_URL" | sed -E "s|https?://([^.]+)\..*|\1|")
   PGPASSWORD="$SUPABASE_DB_PASSWORD" psql \
     -h "aws-1-ap-northeast-2.pooler.supabase.com" -p 5432 \
@@ -122,13 +109,20 @@ doppler run --config prd -- bash -c '
 '
 ```
 
-### Vercel 프로젝트 제거
-Dashboard → Settings → Delete Project. 또는 `vercel project rm kyro-hackathon-mcp`.
+### Vercel + Doppler + GitHub repo 정리
 
-### DB 인프라 완전 제거 (선택)
+```bash
+# Vercel: dashboard 에서 Settings → Delete Project
+# Doppler:
+doppler projects delete kyro-hackathon-mcp
+# GitHub: dashboard 에서 archive 또는 delete
+gh repo delete Project-KYRO/kyro-hackathon-mcp --yes
+```
+
+### DB 인프라 (선택)
 새 migration 1개로 DROP. 또는 그대로 두고 다음 해커톤 재사용.
 
 ## ⚠️ 보안
 
-- **prod DB password rotation**: 작업 도중 `supabase db dump --dry-run` output 에 plain text 노출됨. Supabase Dashboard → Database → Reset password → doppler `prd` 의 `SUPABASE_DB_PASSWORD` update.
-- **PAT_HASH_PEPPER 보관**: 행사 끝나기 전엔 vercel env 와 admin script 양쪽 같은 값 유지. 행사 후 vercel project 제거 시 함께 사라짐 (보관 X 추천).
+- **prod DB password rotation 필요**: `supabase db dump --dry-run` output 에서 password 가 plain text 로 출력됨 → Claude conversation 컨텍스트에 노출됨. Supabase Dashboard → Database → Reset password → doppler `kyro-frontend/prd` 의 `SUPABASE_DB_PASSWORD` update.
+- **PAT_HASH_PEPPER 일치 강제**: vercel env 와 doppler kyro-hackathon-mcp/prd 가 동일해야 token 검증 성공. integration 또는 CLI 로 sync.

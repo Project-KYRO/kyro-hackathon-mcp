@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { supabaseAdmin } from './supabase';
 import { hashToken } from './pat';
-import { rateLimit } from './redis';
 
 export type AuthResult =
   | { ok: true; userId: string }
@@ -19,16 +18,6 @@ export async function authenticate(req: NextRequest): Promise<AuthResult> {
   }
 
   const tokenHash = hashToken(raw);
-
-  // Per-token rate limit: 60/min, 5000/day.
-  const minute = await rateLimit(`tok:min:${tokenHash}`, 60, 60);
-  if (!minute.ok) {
-    return { ok: false, status: 429, error: 'rate_limited_per_minute' };
-  }
-  const day = await rateLimit(`tok:day:${tokenHash}`, 5000, 86400);
-  if (!day.ok) {
-    return { ok: false, status: 429, error: 'rate_limited_per_day' };
-  }
 
   const { data, error } = await supabaseAdmin.rpc('mcp_verify_pat', {
     p_token_hash: tokenHash,
