@@ -17,5 +17,5 @@ export async function GET(req: NextRequest) {
   return jsonOk(data);
 }
 
-// Edge cache 1 minute — aggregates change slowly.
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;

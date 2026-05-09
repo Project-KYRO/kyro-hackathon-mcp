@@ -31,5 +31,5 @@ function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
-// Edge cache 5 minutes — heavy query, results stable.
-export const revalidate = 300;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
