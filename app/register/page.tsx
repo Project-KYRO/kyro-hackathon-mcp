@@ -21,26 +21,50 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Magic link 클릭 후 hackathon.kyro.team/register 로 redirect 됐을 때
-  // URL fragment 의 access_token 을 잡아 자동 issue-pat.
+  // Magic link 클릭 후 hackathon.kyro.team/register 로 redirect 됐을 때:
+  //   - PKCE flow → ?code=xxx in query string (supabase-js newer default)
+  //   - Implicit flow → #access_token=...&refresh_token=... in fragment
+  // 둘 다 잡고 token 추출.
   useEffect(() => {
+    const url = new URL(window.location.href);
     const hash = window.location.hash;
-    if (!hash || !hash.includes('access_token=')) return;
+    const code = url.searchParams.get('code');
+    const errInUrl =
+      url.searchParams.get('error') ||
+      (hash.includes('error=')
+        ? new URLSearchParams(hash.slice(1)).get('error')
+        : null);
+
+    if (errInUrl) {
+      setError(`auth redirect error: ${errInUrl}`);
+      history.replaceState(null, '', window.location.pathname);
+      return;
+    }
+
+    if (!code && !hash.includes('access_token=')) return;
 
     (async () => {
       setStep('issuing');
       setBusy(true);
       try {
         const supabase = getSupabaseBrowser();
-        // supabase-js v2 가 hash 의 token 을 자동으로 session 에 저장
-        const { data: sess } = await supabase.auth.getSession();
-        let accessToken = sess.session?.access_token;
+        let accessToken: string | undefined;
 
-        // fallback — fragment 직접 파싱
-        if (!accessToken) {
-          const params = new URLSearchParams(hash.slice(1));
-          accessToken = params.get('access_token') || undefined;
+        if (code) {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(
+            code
+          );
+          if (error) throw error;
+          accessToken = data.session?.access_token;
+        } else {
+          const { data: sess } = await supabase.auth.getSession();
+          accessToken = sess.session?.access_token;
+          if (!accessToken) {
+            const params = new URLSearchParams(hash.slice(1));
+            accessToken = params.get('access_token') || undefined;
+          }
         }
+
         if (!accessToken) throw new Error('no_session_after_redirect');
 
         const res = await fetch('/api/auth/issue-pat', {
@@ -53,7 +77,6 @@ export default function RegisterPage() {
         setStep('reveal');
 
         await supabase.auth.signOut();
-        // hash 정리
         history.replaceState(null, '', window.location.pathname);
       } catch (e: any) {
         setError(e?.message || '인증 처리 실패');
