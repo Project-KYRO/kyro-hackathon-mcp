@@ -16,14 +16,3 @@ export function generateRawToken(): string {
 export function hashToken(rawToken: string): string {
   return createHash('sha256').update(`${getPepper()}|${rawToken}`).digest('hex');
 }
-
-export function generateOtp(): string {
-  const n = randomBytes(4).readUInt32BE(0) % 1_000_000;
-  return n.toString().padStart(6, '0');
-}
-
-export function hashOtp(otp: string, email: string): string {
-  return createHash('sha256')
-    .update(`${getPepper()}|otp|${email.toLowerCase()}|${otp}`)
-    .digest('hex');
-}
