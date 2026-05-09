@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 
-type Step = 'email' | 'otp' | 'reveal';
+type Step = 'email' | 'sent' | 'reveal' | 'issuing';
 
 interface TokenInfo {
   token: string;
@@ -17,12 +17,54 @@ export default function RegisterPage() {
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
   const [consent, setConsent] = useState(false);
-  const [otp, setOtp] = useState('');
   const [token, setToken] = useState<TokenInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function requestOtp() {
+  // Magic link 클릭 후 hackathon.kyro.team/register 로 redirect 됐을 때
+  // URL fragment 의 access_token 을 잡아 자동 issue-pat.
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash || !hash.includes('access_token=')) return;
+
+    (async () => {
+      setStep('issuing');
+      setBusy(true);
+      try {
+        const supabase = getSupabaseBrowser();
+        // supabase-js v2 가 hash 의 token 을 자동으로 session 에 저장
+        const { data: sess } = await supabase.auth.getSession();
+        let accessToken = sess.session?.access_token;
+
+        // fallback — fragment 직접 파싱
+        if (!accessToken) {
+          const params = new URLSearchParams(hash.slice(1));
+          accessToken = params.get('access_token') || undefined;
+        }
+        if (!accessToken) throw new Error('no_session_after_redirect');
+
+        const res = await fetch('/api/auth/issue-pat', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        const payload = await res.json();
+        if (!res.ok) throw new Error(payload.error || 'issue_failed');
+        setToken(payload as TokenInfo);
+        setStep('reveal');
+
+        await supabase.auth.signOut();
+        // hash 정리
+        history.replaceState(null, '', window.location.pathname);
+      } catch (e: any) {
+        setError(e?.message || '인증 처리 실패');
+        setStep('email');
+      } finally {
+        setBusy(false);
+      }
+    })();
+  }, []);
+
+  async function requestMagicLink() {
     if (!consent) {
       setError('약관 동의가 필요합니다.');
       return;
@@ -33,44 +75,15 @@ export default function RegisterPage() {
       const supabase = getSupabaseBrowser();
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
-        options: { shouldCreateUser: false },
+        options: {
+          shouldCreateUser: false,
+          emailRedirectTo: `${window.location.origin}/register`,
+        },
       });
       if (error) throw error;
-      setStep('otp');
+      setStep('sent');
     } catch (e: any) {
       setError(e?.message || '메일 발송 실패');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function verifyAndIssue() {
-    setBusy(true);
-    setError(null);
-    try {
-      const supabase = getSupabaseBrowser();
-      const { data, error } = await supabase.auth.verifyOtp({
-        email: email.trim().toLowerCase(),
-        token: otp,
-        type: 'email',
-      });
-      if (error) throw error;
-      const accessToken = data.session?.access_token;
-      if (!accessToken) throw new Error('verifyOtp succeeded but no session');
-
-      const res = await fetch('/api/auth/issue-pat', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const payload = await res.json();
-      if (!res.ok) throw new Error(payload.error || 'issue_failed');
-
-      setToken(payload as TokenInfo);
-      setStep('reveal');
-
-      await supabase.auth.signOut();
-    } catch (e: any) {
-      setError(e?.message || '인증 실패');
     } finally {
       setBusy(false);
     }
@@ -87,8 +100,8 @@ export default function RegisterPage() {
     >
       <h1 style={{ fontSize: 28, marginBottom: 8 }}>토큰 발급</h1>
       <p style={{ color: '#a1a1aa', marginBottom: 32, fontSize: 14 }}>
-        KYRO 가입 email 로 OTP 인증 후 1회 발급. 토큰은 다시 볼 수 없으니 발급 직후
-        복사하세요.
+        KYRO 가입 email 의 인증 메일 링크를 클릭하면 자동 발급. 토큰은 한 번만
+        보여요 — 발급 직후 복사해 두세요.
       </p>
 
       {error && (
@@ -135,53 +148,35 @@ export default function RegisterPage() {
               style={{ marginTop: 4 }}
             />
             <span>
-              행사 기간 동안 본인 KYRO 데이터 + 본인이 follow 한 사용자의 공개 러닝
-              데이터를 read API 로 access 함에 동의합니다. 토큰은 행사 종료 +24h 에
-              자동 만료되며, KYRO 전체 익명 데이터셋(식별 불가 처리)에도 access
-              합니다.
+              행사 기간 동안 본인 KYRO 데이터 + 본인이 follow 한 사용자의 공개
+              러닝 데이터를 read API 로 access 함에 동의합니다. 토큰은 행사 종료
+              +24h 에 자동 만료되며, KYRO 전체 익명 데이터셋 (식별 불가 처리) 에도
+              access 합니다.
             </span>
           </label>
 
           <button
-            onClick={requestOtp}
+            onClick={requestMagicLink}
             disabled={busy || !email || !consent}
             style={btnStyle(busy || !email || !consent)}
           >
-            {busy ? '발송 중...' : '인증 코드 메일 받기'}
+            {busy ? '발송 중...' : '인증 링크 메일 받기'}
           </button>
         </>
       )}
 
-      {step === 'otp' && (
+      {step === 'sent' && (
         <>
           <p style={{ color: '#a1a1aa', fontSize: 14 }}>
-            <strong style={{ color: '#f5f5f5' }}>{email}</strong> 으로 6자리 코드
-            발송됨. 메일이 안 보이면 스팸 폴더도 확인해 주세요.
+            <strong style={{ color: '#f5f5f5' }}>{email}</strong> 으로 인증 메일을
+            보냈습니다. 메일의 <strong>"Log In"</strong> 또는{' '}
+            <strong>"Confirm"</strong> 링크를 누르면 자동으로 이 페이지로 돌아와
+            토큰이 발급됩니다.
           </p>
-          <label style={labelStyle}>6자리 코드</label>
-          <input
-            type="text"
-            inputMode="numeric"
-            pattern="\d{6}"
-            value={otp}
-            onChange={(e) =>
-              setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
-            }
-            placeholder="000000"
-            style={{
-              ...inputStyle,
-              letterSpacing: 8,
-              textAlign: 'center',
-              fontSize: 24,
-            }}
-          />
-          <button
-            onClick={verifyAndIssue}
-            disabled={busy || otp.length !== 6}
-            style={btnStyle(busy || otp.length !== 6)}
-          >
-            {busy ? '인증 중...' : '인증 + 토큰 발급'}
-          </button>
+          <p style={{ color: '#71717a', fontSize: 13, marginTop: 16 }}>
+            메일이 안 보이면 스팸 폴더도 확인해 주세요. 한 시간 안에 클릭하지
+            않으면 만료돼요.
+          </p>
           <button
             onClick={() => setStep('email')}
             style={{
@@ -189,12 +184,16 @@ export default function RegisterPage() {
               background: 'transparent',
               color: '#a1a1aa',
               border: '1px solid #27272a',
-              marginTop: 8,
+              marginTop: 24,
             }}
           >
             ← email 다시 입력
           </button>
         </>
+      )}
+
+      {step === 'issuing' && (
+        <p style={{ color: '#a1a1aa' }}>인증 처리 중... 잠시만요.</p>
       )}
 
       {step === 'reveal' && token && (
@@ -226,7 +225,7 @@ export default function RegisterPage() {
           <code style={codeStyle}>{token.mcp_url}</code>
 
           <label style={{ ...labelStyle, marginTop: 24 }}>
-            Claude Desktop 설정 (~/Library/Application Support/Claude/claude_desktop_config.json)
+            Claude Desktop 설정
           </label>
           <pre style={preStyle}>
             {JSON.stringify(token.mcp_config_snippet, null, 2)}
