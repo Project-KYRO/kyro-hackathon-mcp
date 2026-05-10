@@ -122,9 +122,13 @@ export default function RegisterPage() {
       }}
     >
       <h1 style={{ fontSize: 28, marginBottom: 8 }}>토큰 발급</h1>
-      <p style={{ color: '#a1a1aa', marginBottom: 32, fontSize: 14 }}>
+      <p style={{ color: '#a1a1aa', marginBottom: 16, fontSize: 14 }}>
         KYRO 가입 email 의 인증 메일 링크를 클릭하면 자동 발급. 토큰은 한 번만
         보여요 — 발급 직후 복사해 두세요.
+      </p>
+      <p style={{ color: '#71717a', fontSize: 12, marginBottom: 32 }}>
+        ※ Apple 로그인 + "이메일 숨기기" 사용자는 메일이 안 올 수 있어요. 그 경우
+        운영자에게 KYRO 닉네임을 알려주면 토큰을 직접 발급해 드립니다.
       </p>
 
       {error && (
