@@ -15,6 +15,7 @@ KYRO 의 러닝 데이터로 하루 동안 뭐든 만들어볼 수 있어요. AI
 ### 2. KYRO 전체 익명 통계
 
 - 시간대별 러닝 분포 (24시간) / 거리·페이스 히스토그램 / 도시·지역별 활성도 / 90일 window
+- **active 사용자 demographics** — 성별 / 연령대 / 교차 분포 (share 비율만, total 미노출, k≥5 anonymity)
 
 ### 3. KYRO 전체 익명 trace 데이터셋
 
@@ -57,6 +58,7 @@ KYRO 의 러닝 데이터로 하루 동안 뭐든 만들어볼 수 있어요. AI
 | `GET /api/v1/friends/runs?limit=50&cursor=...` | 친구 러닝 목록 |
 | `GET /api/v1/aggregates` | KYRO 전체 익명 집계 |
 | `GET /api/v1/anon-traces?limit=100&cursor=...&region=서울` | KYRO 전체 익명 trace |
+| `GET /api/v1/demographics` | KYRO active 사용자 성별·연령대 분포 (share only, k≥5) |
 | `POST /api/mcp` | MCP transport (Claude Desktop 등) |
 
 전부 Bearer 인증 (`Authorization: Bearer kyro_pat_...`).
@@ -72,6 +74,9 @@ curl -H "Authorization: Bearer $TOKEN" "$BASE/api/v1/runs/01HX..."
 curl -H "Authorization: Bearer $TOKEN" "$BASE/api/v1/friends/runs?limit=20"
 curl -H "Authorization: Bearer $TOKEN" "$BASE/api/v1/aggregates"
 curl -H "Authorization: Bearer $TOKEN" "$BASE/api/v1/anon-traces?limit=50&region=서울"
+
+# 6. KYRO 사용자 demographics (성별/연령대 share, total 노출 X)
+curl -H "Authorization: Bearer $TOKEN" "$BASE/api/v1/demographics"
 ```
 
 전체 endpoint 검증: `examples/curl-smoke.sh`
@@ -103,7 +108,7 @@ curl -H "Authorization: Bearer $TOKEN" "$BASE/api/v1/anon-traces?limit=50&region
 }
 ```
 
-설정 후 Claude Desktop 재시작 → "내 KYRO 러닝 페이스 트렌드 분석해줘" 같이 자연어로. Claude 가 적절한 tool (`list_my_runs`, `get_run_detail`, `list_friend_runs`, `get_aggregate_stats`, `list_anon_traces`) 호출.
+설정 후 Claude Desktop 재시작 → "내 KYRO 러닝 페이스 트렌드 분석해줘" 같이 자연어로. Claude 가 적절한 tool (`list_my_runs`, `get_run_detail`, `list_friend_runs`, `get_aggregate_stats`, `list_anon_traces`, `get_demographics`) 호출.
 
 ## 응답 shape (요약)
 
