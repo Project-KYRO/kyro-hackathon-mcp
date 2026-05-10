@@ -69,6 +69,12 @@ const TOOLS = [
       },
     },
   },
+  {
+    name: 'get_demographics',
+    description:
+      'KYRO active 사용자의 성별·연령대·교차 분포 (share 비율만, total/count 미노출, k≥5 anonymity). KYRO active-user demographics — share-only, no totals exposed.',
+    inputSchema: { type: 'object', properties: {} },
+  },
 ];
 
 export async function OPTIONS() {
@@ -196,6 +202,11 @@ async function callTool(
       p_cursor: args.cursor ?? null,
       p_region_label: args.region ?? null,
     });
+    if (error) throw new Error(error.message);
+    return data;
+  }
+  if (name === 'get_demographics') {
+    const { data, error } = await supabaseAdmin.rpc('mcp_get_demographics');
     if (error) throw new Error(error.message);
     return data;
   }
