@@ -68,9 +68,11 @@ function getIssuance(): Ratelimit | null {
   if (!redis) return null;
   issuanceLimiter = new Ratelimit({
     redis,
-    // 5 issuance attempts per IP per hour. Legit retries (typos, transient
-    // failures) fit; serial pre-emptive grab attacks do not.
-    limiter: Ratelimit.slidingWindow(5, '1 h'),
+    // 100 issuance attempts per IP per hour. Tuned for the venue-WiFi NAT case
+    // where up to ~30 participants share one public IP and want to register at
+    // once. Single-actor passcode brute force is still infeasible at this rate
+    // (32^6 keyspace = ~10^9; 100/h × 24h = 2,400/day → ~10^6 days to brute).
+    limiter: Ratelimit.slidingWindow(100, '1 h'),
     analytics: false,
     prefix: 'kyro:rl:issue',
   });
