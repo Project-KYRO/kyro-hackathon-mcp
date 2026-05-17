@@ -43,7 +43,7 @@ doppler secrets set --project kyro-hackathon-mcp --config prd \
   REGISTRATION_OPEN='true' \
   OAUTH_PROVIDERS='apple,google,kakao,email' \
   CRON_SECRET='<openssl rand -base64 32>' \
-  NEXT_PUBLIC_BASE_URL='https://kyro-hackathon-mcp.vercel.app'
+  NEXT_PUBLIC_BASE_URL='https://hackathon.kyro.team'
 ```
 
 Optional env for Full mode:
@@ -86,7 +86,7 @@ The DB schema (`mcp_personal_access_tokens` + the `mcp_*` RPCs) lives in the mai
 
 Auth configuration in <https://supabase.com/dashboard/project/zkjpqbhmsvbibygemqfb>:
 
-1. **Authentication → URL Configuration → Redirect URLs**: add `https://kyro-hackathon-mcp.vercel.app/register` (and the preview URL if you're testing on a preview deployment).
+1. **Authentication → URL Configuration → Redirect URLs**: add `https://hackathon.kyro.team/register` (and the preview URL if you're testing on a preview deployment).
 2. **Authentication → Providers → Apple**: confirm `Services ID` is filled. If it's empty, web Apple Sign-In won't work. Either set up an Apple Service ID in Apple Developer Portal, or drop Apple from `OAUTH_PROVIDERS`.
 3. **Authentication → Providers → Google**: confirm the **Web** client ID is set (not just the iOS/Android ones).
 4. **Authentication → Providers → Kakao**: confirm Web platform is enabled in the Kakao Developer console for this site origin.
@@ -112,7 +112,7 @@ For the live deploy, open `/register` in a browser, complete sign-in with your K
 
 ```bash
 TOKEN=kyro_pat_xxxxxxxxxxxxxxxx
-curl -H "Authorization: Bearer $TOKEN" https://kyro-hackathon-mcp.vercel.app/api/v1/runs?limit=1
+curl -H "Authorization: Bearer $TOKEN" https://hackathon.kyro.team/api/v1/runs?limit=1
 ```
 
 ## 3. Remote operations (during the event)

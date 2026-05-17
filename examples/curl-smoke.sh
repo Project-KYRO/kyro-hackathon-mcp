@@ -4,7 +4,7 @@
 set -euo pipefail
 
 : "${KYRO_PAT:?Set KYRO_PAT env first}"
-BASE="${KYRO_BASE_URL:-https://kyro-hackathon-mcp.vercel.app}"
+BASE="${KYRO_BASE_URL:-https://hackathon.kyro.team}"
 H="Authorization: Bearer $KYRO_PAT"
 
 echo "=== /api/v1/runs ==="

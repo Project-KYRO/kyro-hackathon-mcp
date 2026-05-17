@@ -42,7 +42,7 @@ Read-only data API + MCP server for KYRO hackathon participants. Build whatever 
 2. **My Page → Default audience → set to `Public`** (otherwise other participants can't see your data).
 3. Follow other participants in the app.
 4. Do a warm-up run (10 min).
-5. Open <https://kyro-hackathon-mcp.vercel.app/register> and follow the steps.
+5. Open <https://hackathon.kyro.team/register> and follow the steps.
 6. You'll see your token once — copy it immediately.
 
 ### Apple Hide-My-Email users
@@ -81,7 +81,7 @@ All endpoints use Bearer authentication: `Authorization: Bearer kyro_pat_...`.
 
 ```bash
 TOKEN=kyro_pat_xxxxxxxxxxxxxxxx
-BASE=https://kyro-hackathon-mcp.vercel.app
+BASE=https://hackathon.kyro.team
 
 curl -H "Authorization: Bearer $TOKEN" "$BASE/api/v1/runs?limit=10"
 curl -H "Authorization: Bearer $TOKEN" "$BASE/api/v1/runs/01HX..."
@@ -113,7 +113,7 @@ See `examples/python-claude-agent.py`.
 {
   "mcpServers": {
     "kyro": {
-      "url": "https://kyro-hackathon-mcp.vercel.app/api/mcp",
+      "url": "https://hackathon.kyro.team/api/mcp",
       "headers": { "Authorization": "Bearer kyro_pat_xxxxxxxxx" }
     }
   }

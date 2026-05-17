@@ -145,7 +145,7 @@ export default function Home() {
       <Section title="Code examples" id="examples">
         <h3 style={subHeaderStyle}>cURL</h3>
         <pre style={codeBlockStyle}>{`TOKEN=kyro_pat_xxxxxxxxxx
-BASE=https://kyro-hackathon-mcp.vercel.app
+BASE=https://hackathon.kyro.team
 
 # Your runs
 curl -H "Authorization: Bearer $TOKEN" \\
@@ -166,7 +166,7 @@ curl -H "Authorization: Bearer $TOKEN" \\
         <pre style={codeBlockStyle}>{`import requests
 
 TOKEN = "kyro_pat_xxxxxxxxxx"
-BASE  = "https://kyro-hackathon-mcp.vercel.app"
+BASE  = "https://hackathon.kyro.team"
 H     = {"Authorization": f"Bearer {TOKEN}"}
 
 # Recent runs
@@ -182,7 +182,7 @@ for s in detail["splits"]:
 
         <h3 style={subHeaderStyle}>JavaScript / TypeScript</h3>
         <pre style={codeBlockStyle}>{`const TOKEN = "kyro_pat_xxxxxxxxxx";
-const BASE  = "https://kyro-hackathon-mcp.vercel.app";
+const BASE  = "https://hackathon.kyro.team";
 
 const headers = { Authorization: \`Bearer \${TOKEN}\` };
 
@@ -211,7 +211,7 @@ for (const t of traces.traces) {
         <pre style={codeBlockStyle}>{`{
   "mcpServers": {
     "kyro": {
-      "url": "https://kyro-hackathon-mcp.vercel.app/api/mcp",
+      "url": "https://hackathon.kyro.team/api/mcp",
       "headers": {
         "Authorization": "Bearer kyro_pat_xxxxxxxxxx"
       }
@@ -225,6 +225,44 @@ for (const t of traces.traces) {
           Singapore?&quot;</em>, <em>&quot;Find the most-repeated routes near
           Marina Bay.&quot;</em>
         </p>
+
+        <h3 style={subHeaderStyle}>MCP tools (what Claude can call)</h3>
+        <div style={tableWrapStyle}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Tool name</th>
+                <th style={thStyle}>What it does</th>
+              </tr>
+            </thead>
+            <tbody>
+              <ToolRow
+                name="list_my_runs"
+                desc="Your own runs (most recent first). No GPS trace — pair with get_run_detail."
+              />
+              <ToolRow
+                name="get_run_detail"
+                desc="Full detail of one run: GPS trace (GeoJSON) + per-km splits (pace, elevation)."
+              />
+              <ToolRow
+                name="list_friend_runs"
+                desc="Runs from people you follow, audience-filtered (public / follower / mutual_friend)."
+              />
+              <ToolRow
+                name="get_aggregate_stats"
+                desc="KYRO-wide activity histograms over the last 90 days (hour, day-of-week, distance, pace, region)."
+              />
+              <ToolRow
+                name="list_anon_traces"
+                desc="K-anonymized GPS trace dataset (k≥3 by hour+region). Good for route discovery / clustering."
+              />
+              <ToolRow
+                name="get_demographics"
+                desc="Anonymous gender + age band distribution. Share-only, no totals exposed (k≥5)."
+              />
+            </tbody>
+          </table>
+        </div>
       </Section>
 
       {/* Build ideas */}
@@ -401,6 +439,26 @@ function Idea({ title, children }: { title: string; children: React.ReactNode })
       <h3 style={ideaTitleStyle}>{title}</h3>
       <p style={ideaBodyStyle}>{children}</p>
     </div>
+  );
+}
+
+function ToolRow({ name, desc }: { name: string; desc: string }) {
+  return (
+    <tr>
+      <td style={tdStyle}>
+        <code
+          style={{
+            fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+            fontSize: 13,
+            color: '#86efac',
+            wordBreak: 'break-all',
+          }}
+        >
+          {name}
+        </code>
+      </td>
+      <td style={{ ...tdStyle, color: '#a1a1aa', fontSize: 14 }}>{desc}</td>
+    </tr>
   );
 }
 
