@@ -1,128 +1,185 @@
-# Deploy + 운영 가이드
+# Deploy + operations
 
-## 시크릿 위치 — Doppler
+Audience: the organizer running the event remotely. Set up once, monitor + react during the event, and run the sunset checklist after.
 
-Doppler project: **`kyro-hackathon-mcp`** / config: **`prd`**
+## 1. One-time setup
 
-이미 등록된 secret (Claude 가 자동 등록):
+### 1.1 Cloudflare Turnstile
 
-| Name | 출처 |
-|---|---|
-| `SUPABASE_URL` | doppler kyro-frontend/prd 에서 복사 |
-| `SUPABASE_SERVICE_ROLE_KEY` | 위와 동일 (이름 typo `_` 정정) |
-| `PAT_HASH_PEPPER` | `openssl rand -base64 32` 자동 생성 |
-| `HACKATHON_PAT_EXPIRES_AT` | `2026-05-11T20:00:00+09:00` |
-| `NEXT_PUBLIC_BASE_URL` | `https://kyro-hackathon-mcp.vercel.app` (deploy 후 업데이트) |
+1. <https://dash.cloudflare.com/?to=/:account/turnstile> → **Add site**.
+2. Site name: `kyro-hackathon-mcp`. Domains: leave broad (`*.vercel.app`) during initial deploy, then tighten to the actual Vercel domain.
+3. Widget mode: **Managed**.
+4. Copy `Site Key` and `Secret Key`.
 
-값 확인:
-```bash
-doppler secrets --project kyro-hackathon-mcp --config prd --only-names
-```
-
-## Vercel 배포 — 두 옵션
-
-### 옵션 A: Doppler-Vercel integration (가장 깔끔, 권장)
-
-1. Doppler dashboard → **Integrations** → **Vercel**
-2. OAuth 1회 (Vercel team 선택)
-3. Doppler project `kyro-hackathon-mcp` / config `prd` ↔ Vercel project `kyro-hackathon-mcp` 연결
-4. Vercel 자동 빌드 (GitHub integration 이 push 마다 트리거)
-
-장점: Doppler 가 SSOT. secret 변경 시 Vercel 자동 sync.
-
-### 옵션 B: VERCEL_TOKEN 으로 CLI 자동화
-
-1. https://vercel.com/account/settings/tokens 에서 token 발급 (이름 자유, full scope)
-2. 발급된 token 을 `VERCEL_TOKEN` env 로 export 하면 Claude 가 vercel CLI 로 link + env 입력 + deploy 자동
-
-## 토큰 일괄 발급 (admin script)
-
-본인 노트북에서 doppler run 으로 한 번에:
+### 1.2 Doppler
 
 ```bash
-cd ~/Desktop/KYRO/kyro-hackathon-mcp
-
-# 참가자 email 리스트
-cat > emails.csv <<'CSV'
-alice@example.com
-bob@example.com
-charlie@example.com
-CSV
-
-# Doppler 가 PEPPER / SUPABASE_* 를 process env 로 주입 → script 가 그걸로 발급
-doppler run --project kyro-hackathon-mcp --config prd -- pnpm issue-pat emails.csv
+doppler projects create kyro-hackathon-mcp
+doppler setup --project kyro-hackathon-mcp --config prd
 ```
 
-출력 `emails_tokens.csv` 의 row 별로 카톡/메일 회신.
-
-### 회신 템플릿 (한 명당)
-
-```
-[KYRO Hackathon] 본인 API 토큰입니다
-
-🔑 token: kyro_pat_xxxxxxxxxxxxxxxx
-⏰ 만료: 2026-05-11 20:00
-
-REST: https://kyro-hackathon-mcp.vercel.app/api/v1
-MCP:  https://kyro-hackathon-mcp.vercel.app/api/mcp
-
-cURL 빠른 시작:
-curl -H "Authorization: Bearer kyro_pat_xxx" \
-  https://kyro-hackathon-mcp.vercel.app/api/v1/runs?limit=10
-
-Claude Desktop 설정:
-{
-  "mcpServers": {
-    "kyro": {
-      "url": "https://kyro-hackathon-mcp.vercel.app/api/mcp",
-      "headers": { "Authorization": "Bearer kyro_pat_xxx" }
-    }
-  }
-}
-
-가이드: https://github.com/Project-KYRO/kyro-hackathon-mcp
-```
-
-## 본인 e2e 검증
+Set the secrets (from `kyro-frontend/prd` for the Supabase keys, freshly generated for the rest):
 
 ```bash
-# 본인 token 발급
-echo "jeongwoo@kyro.team" > test.csv
-doppler run --project kyro-hackathon-mcp --config prd -- pnpm issue-pat test.csv
-
-# 발급된 token 으로 smoke
-export KYRO_PAT="kyro_pat_xxx"
-export KYRO_BASE_URL=https://kyro-hackathon-mcp.vercel.app
-./examples/curl-smoke.sh
+doppler secrets set --project kyro-hackathon-mcp --config prd \
+  SUPABASE_URL='<from kyro-frontend/prd>' \
+  SUPABASE_SERVICE_ROLE_KEY='<from kyro-frontend/prd>' \
+  NEXT_PUBLIC_SUPABASE_URL='<from kyro-frontend/prd>' \
+  NEXT_PUBLIC_SUPABASE_ANON_KEY='<from kyro-frontend/prd>' \
+  PAT_HASH_PEPPER='<openssl rand -base64 32>' \
+  HACKATHON_PAT_EXPIRES_AT='2026-05-19T23:59:00+08:00' \
+  EVENT_PASSCODE='<6 chars from organizer>' \
+  REGISTRATION_OPEN='true' \
+  OAUTH_PROVIDERS='apple,google,kakao,email' \
+  CRON_SECRET='<openssl rand -base64 32>' \
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY='<from Cloudflare>' \
+  TURNSTILE_SECRET_KEY='<from Cloudflare>' \
+  NEXT_PUBLIC_BASE_URL='https://kyro-hackathon-mcp.vercel.app'
 ```
 
-## 행사 후 sunset
+Upstash variables (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`) are added automatically when you provision Upstash via the Vercel Marketplace — they do not need to live in Doppler.
 
-### 토큰 일괄 무효
+### 1.3 GitHub
+
+Unarchive the repo if archived: <https://github.com/Project-KYRO/kyro-hackathon-mcp/settings>.
+
+### 1.4 Vercel
+
+1. **Import repo** → `Project-KYRO/kyro-hackathon-mcp`.
+2. **Settings → Functions** → Region: `Singapore (sin1)`.
+3. **Doppler-Vercel integration**: Doppler dashboard → Integrations → Vercel → link `kyro-hackathon-mcp/prd` to the Vercel project. Vercel will sync the env vars on every Doppler change.
+4. **Settings → Environment Variables**: verify the values from Doppler appear. Add `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` here once Upstash is provisioned (step 1.5).
+5. **Deploy**. Confirm the cron in **Settings → Cron Jobs** shows `/api/cron/auto-revoke` running hourly.
+
+### 1.5 Upstash Redis
+
+1. Vercel project → **Integrations** → search "Upstash" → **Add Database**.
+2. Region: **Singapore**. Plan: Free is fine for a single event.
+3. The integration auto-injects `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` into the Vercel project's env.
+4. Redeploy so the new env vars take effect.
+
+### 1.6 Supabase
+
+The DB schema (`mcp_personal_access_tokens` + the `mcp_*` RPCs) lives in the main `kyro_frontend` Supabase project. The hackathon API just reads it. The objects already exist from the previous event — nothing to migrate.
+
+Auth configuration in <https://supabase.com/dashboard/project/zkjpqbhmsvbibygemqfb>:
+
+1. **Authentication → URL Configuration → Redirect URLs**: add `https://kyro-hackathon-mcp.vercel.app/register` (and the preview URL if you're testing on a preview deployment).
+2. **Authentication → Providers → Apple**: confirm `Services ID` is filled. If it's empty, web Apple Sign-In won't work. Either set up an Apple Service ID in Apple Developer Portal, or drop Apple from `OAUTH_PROVIDERS`.
+3. **Authentication → Providers → Google**: confirm the **Web** client ID is set (not just the iOS/Android ones).
+4. **Authentication → Providers → Kakao**: confirm Web platform is enabled in the Kakao Developer console for this site origin.
+
+### 1.7 Generate fresh secrets
+
 ```bash
-doppler run --config prd --project kyro-frontend -- bash -c '
+openssl rand -base64 32   # PAT_HASH_PEPPER
+openssl rand -base64 32   # CRON_SECRET
+LC_ALL=C tr -dc 'A-HJ-NP-Z2-9' < /dev/urandom | head -c 6 ; echo
+                          # EVENT_PASSCODE — A-Z minus I/O, 2-9 minus 0/1 to avoid ambiguity
+```
+
+## 2. End-to-end smoke test
+
+```bash
+doppler run --project kyro-hackathon-mcp --config prd -- pnpm dev
+# In another shell, with the same Doppler env:
+doppler run --project kyro-hackathon-mcp --config prd -- ./examples/curl-smoke.sh
+```
+
+For the live deploy, open `/register` in a browser, complete sign-in with your KYRO account, and confirm a token is issued. Then:
+
+```bash
+TOKEN=kyro_pat_xxxxxxxxxxxxxxxx
+curl -H "Authorization: Bearer $TOKEN" https://kyro-hackathon-mcp.vercel.app/api/v1/runs?limit=1
+```
+
+## 3. Remote operations (during the event)
+
+### 3.1 Monitor
+
+- **Vercel logs**: <https://vercel.com/<team>/kyro-hackathon-mcp/logs>. Search for `[issue-pat]`, `[ratelimit]`, `[cron/auto-revoke]`.
+- **Token activity**: query the PROD Supabase from anywhere:
+
+  ```bash
+  doppler run --project kyro-frontend --config prd -- bash -c '
+    ref=$(echo "$SUPABASE_URL" | sed -E "s|https?://([^.]+)\..*|\1|")
+    PGPASSWORD="$SUPABASE_DB_PASSWORD" psql \
+      -h "aws-1-ap-northeast-2.pooler.supabase.com" -p 5432 \
+      -U "postgres.${ref}" -d postgres -c \
+      "SELECT count(*) total,
+              count(*) FILTER (WHERE revoked_at IS NULL AND expires_at > now()) active,
+              max(last_used_at) most_recent_use
+         FROM public.mcp_personal_access_tokens;"
+  '
+  ```
+
+### 3.2 Emergency kill switch
+
+```bash
+doppler run --project kyro-hackathon-mcp --config prd -- pnpm kill-switch
+```
+
+- Revokes every live token immediately (single UPDATE).
+- If you also set `VERCEL_TOKEN` + `VERCEL_PROJECT_ID` (and optionally `VERCEL_TEAM_ID`), it also flips `REGISTRATION_OPEN=false` so new registrations stop. Vercel reads the new value on the next deployment.
+
+### 3.3 Emergency manual token issue
+
+If a participant can't self-serve (e.g., web Apple OAuth issues), issue from anywhere by user ID or email:
+
+```bash
+# Find the user ID by nickname (be specific — many KYRO nicknames collide)
+doppler run --project kyro-frontend --config prd -- bash -c '
   ref=$(echo "$SUPABASE_URL" | sed -E "s|https?://([^.]+)\..*|\1|")
   PGPASSWORD="$SUPABASE_DB_PASSWORD" psql \
     -h "aws-1-ap-northeast-2.pooler.supabase.com" -p 5432 \
     -U "postgres.${ref}" -d postgres -c \
-    "UPDATE public.mcp_personal_access_tokens SET revoked_at = now() WHERE revoked_at IS NULL"
+    "SELECT u.id, un.nickname FROM public.users u
+       JOIN public.user_nickname un ON un.user_id = u.id
+      WHERE un.nickname ILIKE '\''%SomeNickname%'\'';"
+'
+
+# Issue one token for that user
+echo "01KCY451HDY6Q9NQNZSNEQ055H" > /tmp/who.csv
+doppler run --project kyro-hackathon-mcp --config prd -- pnpm issue-pat /tmp/who.csv
+```
+
+Output goes to `who_tokens.csv`. Send the token over a private channel.
+
+### 3.4 Extend the event window
+
+If you decide to extend tokens past the configured expiry:
+
+```bash
+doppler secrets set --project kyro-hackathon-mcp --config prd \
+  HACKATHON_PAT_EXPIRES_AT='2026-05-20T23:59:00+08:00'
+
+# Push the new expiry to live tokens
+doppler run --project kyro-frontend --config prd -- bash -c '
+  ref=$(echo "$SUPABASE_URL" | sed -E "s|https?://([^.]+)\..*|\1|")
+  PGPASSWORD="$SUPABASE_DB_PASSWORD" psql \
+    -h "aws-1-ap-northeast-2.pooler.supabase.com" -p 5432 \
+    -U "postgres.${ref}" -d postgres -c \
+    "UPDATE public.mcp_personal_access_tokens
+        SET expires_at = '\''2026-05-20T23:59:00+08:00'\''
+      WHERE revoked_at IS NULL"
 '
 ```
 
-### Vercel + Doppler + GitHub repo 정리
+Redeploy Vercel so the cron picks up the new expiry (otherwise the cron uses the old value cached at build).
 
-```bash
-# Vercel: dashboard 에서 Settings → Delete Project
-# Doppler:
-doppler projects delete kyro-hackathon-mcp
-# GitHub: dashboard 에서 archive 또는 delete
-gh repo delete Project-KYRO/kyro-hackathon-mcp --yes
-```
+## 4. Sunset checklist
 
-### DB 인프라 (선택)
-새 migration 1개로 DROP. 또는 그대로 두고 다음 해커톤 재사용.
+1. Confirm the auto-revoke cron has revoked everything: query token table (`active` should be 0).
+2. Run `pnpm kill-switch` once for safety.
+3. **Vercel**: delete the project (Settings → Delete Project). Or pause it if you plan to reuse soon.
+4. **Doppler**: optionally `doppler projects delete kyro-hackathon-mcp`. Keep around if you plan to reuse.
+5. **Upstash**: free tier auto-pauses on inactivity; delete from Vercel Integration if you want it gone now.
+6. **GitHub**: archive the repo (Settings → Archive this repository) so it's read-only but the source stays accessible.
+7. **Cloudflare Turnstile**: delete the site or leave (free tier, no cost).
+8. **DB**: the `mcp_personal_access_tokens` table + `mcp_*` RPCs live in `kyro_frontend` migrations. Leave them — they cost nothing and are reused on the next event.
 
-## ⚠️ 보안
+## 5. Security notes
 
-- **prod DB password rotation 필요**: `supabase db dump --dry-run` output 에서 password 가 plain text 로 출력됨 → Claude conversation 컨텍스트에 노출됨. Supabase Dashboard → Database → Reset password → doppler `kyro-frontend/prd` 의 `SUPABASE_DB_PASSWORD` update.
-- **PAT_HASH_PEPPER 일치 강제**: vercel env 와 doppler kyro-hackathon-mcp/prd 가 동일해야 token 검증 성공. integration 또는 CLI 로 sync.
+- **PROD DB password rotation**: any time you run `doppler secrets get SUPABASE_DB_PASSWORD --plain` (e.g. piping into psql), the password lands in shell history and any AI tool context attached to that shell. Rotate the password after the event in Supabase Dashboard → Database → Reset password, then update `SUPABASE_DB_PASSWORD` in `kyro-frontend/prd`. Service-role key rotation is a separate (more painful) operation; do it only if you suspect leak.
+- **PAT_HASH_PEPPER** ties the hash format. Don't change it during an active event or every live token instantly becomes invalid.
+- **`OAUTH_PROVIDERS`** env is comma-separated CSV. The register page only renders buttons for providers listed here, but the server still trusts whichever Supabase session the JWT carries — so this is UI-only, not a security boundary. Don't rely on it to "lock out" a provider; remove it from the Supabase Auth config instead.

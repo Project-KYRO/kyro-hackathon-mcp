@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'KYRO Hackathon API',
-  description: 'Read-only data API for the 2026-05-10 KYRO hackathon.',
+  description: 'Read-only data API for KYRO hackathon participants.',
 };
 
 export default function RootLayout({
@@ -11,11 +11,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ko">
+    <html lang="en">
       <body
         style={{
           fontFamily:
-            '-apple-system, BlinkMacSystemFont, "Pretendard", system-ui, sans-serif',
+            '-apple-system, BlinkMacSystemFont, "Inter", "Pretendard", system-ui, sans-serif',
           margin: 0,
           background: '#0a0a0a',
           color: '#f5f5f5',

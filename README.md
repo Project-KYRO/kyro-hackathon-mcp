@@ -1,69 +1,81 @@
 # KYRO Hackathon API
 
-KYRO 의 러닝 데이터로 하루 동안 뭐든 만들어볼 수 있어요. AI 에이전트, 대시보드, 시각화, 게임, 작품 — 상상대로.
+Read-only data API + MCP server for KYRO hackathon participants. Build whatever you want — AI agents, dashboards, visualizations, generative art — using KYRO running data.
 
-> 2026-05-10 캐주얼 해커톤용 read-only 인프라. 행사 종료 후 sunset.
+> Throwaway infra. Tokens auto-expire after the event. Reused across events.
 
-## 쓸 수 있는 데이터 3종
+## What you can access
 
-### 1. 본인 + 친구의 러닝 데이터 (full detail)
+### 1. Your own + friends' running data (full detail)
 
-- 본인의 모든 러닝 — GPS trace / km 별 split (페이스·고도) / 거리·시간·페이스 / 영토·뺏은영토 / 위치 메타 (도시·지역) / 본인이 적은 제목·메모
-- 본인이 follow 한 사람들의 공개 러닝 — KYRO 앱과 동일한 권한 (`audience` 가 `전체` / `팔로워` / `친구만` 인 러닝이 audience 룰 통과 시 노출)
-- 행사장에서 서로 follow 추가하면 그 사람 러닝이 본인 토큰으로 들어옵니다
+- **Your runs**: GPS trace · per-km splits (pace + elevation) · distance · duration · pace · territory claimed/stolen · place metadata (city/region) · your title and notes.
+- **Runs from people you follow**: filtered by each run's audience rule (`public` / `follower` / `mutual_friend`), exactly the same visibility you have in the KYRO app.
+- Follow more people at the event to bring more data into your token's scope.
 
-### 2. KYRO 전체 익명 통계
+### 2. KYRO-wide anonymous aggregates (no PII)
 
-- 시간대별 러닝 분포 (24시간) / 거리·페이스 히스토그램 / 도시·지역별 활성도 / 90일 window
-- **active 사용자 demographics** — 성별 / 연령대 / 교차 분포 (share 비율만, total 미노출, k≥5 anonymity)
+- Hourly + day-of-week activity distribution
+- Distance + pace histograms
+- Region-level activity (country + region label)
+- 90-day window
+- Active-user **demographics** — gender + age band (share only, no totals exposed, k≥5 anonymity)
 
-### 3. KYRO 전체 익명 trace 데이터셋
+### 3. KYRO-wide anonymous trace dataset
 
-- 한 row = 한 러닝의 GPS trace + km 별 split (페이스·고도)
-- user 와 unlinkable — 출발/도착 5%-95% clip + 좌표 50m grid round + 시간 hour 단위 + run_id 매일 randomize + k≥3 anonymity (같은 시간·지역에 3명 이상 활동했을 때만)
+- One row per run: anonymized GPS trace + per-km splits (pace + elevation).
+- Unlinkable to users: endpoint 5%–95% clip, 50m grid round, hour bucket, run_id randomized daily, k≥3 anonymity by (hour, region).
+- `audience='public'` runs only.
 
-## 만들어볼 수 있는 것 (영감)
+## Ideas
 
-- AI 코치 — Claude/GPT 가 본인 데이터 보고 트렌드 분석
-- 인기 코스 분석 — 사람들이 자주 뛰는 경로 시각화
-- 시간대 분석 — 주중/주말, 아침/저녁 패턴
-- 초보자 코스 추천 — 짧고 평탄하고 반복 많은 코스
-- 고도 난이도 지도 — 오르막 많은 구간 표시 (km 별)
-- 페이스 변동 지도 — 사람들이 자주 느려지는 구간
-- trace 패턴 분류 (ML), 영토 전략, 음악·아트 generate 등
+- AI running coach — Claude/GPT reads your data and finds trends.
+- Popular route discovery — visualize where people run most.
+- Time-of-day analysis — weekday vs weekend, morning vs evening patterns.
+- Beginner course recommender — short, flat, repeated routes.
+- Elevation difficulty maps.
+- Pace-drop hotspots — where runners commonly slow down.
+- ML trace clustering, territory strategy, music/art generation, …
 
-## 시작하기 (참가자)
+## Get started (participants)
 
-1. KYRO 앱 설치 + 가입 (행사장 진행)
-2. 마이페이지 → 공개 범위 기본값을 **`전체`** 로 변경 (안 하면 본인 데이터를 다른 참가자가 못 봄)
-3. 행사 참가자끼리 서로 follow 추가
-4. 워밍업 러닝 1번 (10분)
-5. **운영자에게 토큰 회신 받기** — 등록한 email 로 이미 일괄 발급됨. 카톡/메일 확인.
-6. 받은 토큰을 README 의 예제 코드 또는 Claude Desktop config 에 넣고 시작
+1. Install the KYRO app and sign up (we'll guide you at the event venue).
+2. **My Page → Default audience → set to `Public`** (otherwise other participants can't see your data).
+3. Follow other participants in the app.
+4. Do a warm-up run (10 min).
+5. Open <https://kyro-hackathon-mcp.vercel.app/register> and follow the steps.
+6. You'll see your token once — copy it immediately.
 
-## 가드 / 안전
+### Apple Hide-My-Email users
 
-- 전부 **read-only**. KYRO 데이터 수정·삭제 불가
-- 토큰 만료: 행사 종료 +24h 후 자동 무효
-- HR / 케이던스 / 사진 / raw GPS sample 파일은 제공되지 않음 (Garmin Developer Program 컴플라이언스 + 프라이버시)
-- 익명 trace dataset 은 모두 식별 불가 형태로 처리
-- per-token rate limit: 60 req/min, 5000 req/day
+You have three options, in order of preference:
 
-## Endpoint
+1. **Use the "Continue with Apple" button** on the register page (recommended — same provider as the KYRO app, no email lookup needed).
+2. If the Apple button doesn't work for you: enter your `@privaterelay.appleid.com` address in the email field. Find it at: iPhone Settings → your name → Sign In & Security → Sign in with Apple → KYRO. Apple forwards the sign-in email to your real inbox.
+3. As a last resort, ask an organizer to issue a token by user ID.
 
-| Method & Path | 설명 |
+## Safety / limits
+
+- Everything is **read-only**. KYRO data cannot be modified or deleted through this API.
+- Per-token rate limit: **60 requests/minute**, **5,000 requests/day**.
+- Tokens expire automatically after the event window closes.
+- HR / cadence / photos / raw GPS sample files are **not** exposed (Garmin Developer Program compliance + privacy).
+- All anonymized trace records are k-anonymized and unlinkable to users.
+
+## Endpoints
+
+| Method & path | Description |
 |---|---|
-| `GET /api/v1/runs?limit=50&cursor=...` | 본인 러닝 목록 |
-| `GET /api/v1/runs/:id` | 러닝 상세 (GPS trace + splits) |
-| `GET /api/v1/friends/runs?limit=50&cursor=...` | 친구 러닝 목록 |
-| `GET /api/v1/aggregates` | KYRO 전체 익명 집계 |
-| `GET /api/v1/anon-traces?limit=100&cursor=...&region=서울` | KYRO 전체 익명 trace |
-| `GET /api/v1/demographics` | KYRO active 사용자 성별·연령대 분포 (share only, k≥5) |
-| `POST /api/mcp` | MCP transport (Claude Desktop 등) |
+| `GET /api/v1/runs?limit=50&cursor=...` | Your own runs |
+| `GET /api/v1/runs/:id` | Run detail (GPS trace + splits) |
+| `GET /api/v1/friends/runs?limit=50&cursor=...` | Runs from people you follow |
+| `GET /api/v1/aggregates` | KYRO-wide anonymous aggregates |
+| `GET /api/v1/anon-traces?limit=100&cursor=...&region=Singapore` | KYRO-wide anonymous traces |
+| `GET /api/v1/demographics` | Anonymous demographics (share only, k≥5) |
+| `POST /api/mcp` | MCP transport (Claude Desktop, Cursor, etc.) |
 
-전부 Bearer 인증 (`Authorization: Bearer kyro_pat_...`).
+All endpoints use Bearer authentication: `Authorization: Bearer kyro_pat_...`.
 
-## cURL 예제
+## cURL examples
 
 ```bash
 TOKEN=kyro_pat_xxxxxxxxxxxxxxxx
@@ -73,27 +85,25 @@ curl -H "Authorization: Bearer $TOKEN" "$BASE/api/v1/runs?limit=10"
 curl -H "Authorization: Bearer $TOKEN" "$BASE/api/v1/runs/01HX..."
 curl -H "Authorization: Bearer $TOKEN" "$BASE/api/v1/friends/runs?limit=20"
 curl -H "Authorization: Bearer $TOKEN" "$BASE/api/v1/aggregates"
-curl -H "Authorization: Bearer $TOKEN" "$BASE/api/v1/anon-traces?limit=50&region=서울"
-
-# 6. KYRO 사용자 demographics (성별/연령대 share, total 노출 X)
+curl -H "Authorization: Bearer $TOKEN" "$BASE/api/v1/anon-traces?limit=50&region=Singapore"
 curl -H "Authorization: Bearer $TOKEN" "$BASE/api/v1/demographics"
 ```
 
-전체 endpoint 검증: `examples/curl-smoke.sh`
+Full endpoint smoke test: `examples/curl-smoke.sh`.
 
 ## Python — Claude agent (anthropic SDK)
 
-`examples/python-claude-agent.py` 참고.
+See `examples/python-claude-agent.py`.
 
-## Python — 인기 코스 분석 시작점
+## Python — popular route starter
 
-`examples/python-popular-routes.py` — 익명 trace dataset 으로 인기 출발점 grid 추출.
+`examples/python-popular-routes.py` — extracts popular start-point grid cells from the anonymized trace dataset.
 
-## JavaScript / Next 대시보드
+## JavaScript / Next.js dashboard
 
-`examples/js-fetch-demo.mjs` — fetch + 시간대 분포를 ASCII 막대로 출력.
+`examples/js-fetch-demo.mjs` — fetches data and prints an ASCII histogram of hour-of-day activity.
 
-## Claude Desktop / Cursor — 자연어로 호출
+## Claude Desktop / Cursor — talk to it in natural language
 
 `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
@@ -108,31 +118,36 @@ curl -H "Authorization: Bearer $TOKEN" "$BASE/api/v1/demographics"
 }
 ```
 
-설정 후 Claude Desktop 재시작 → "내 KYRO 러닝 페이스 트렌드 분석해줘" 같이 자연어로. Claude 가 적절한 tool (`list_my_runs`, `get_run_detail`, `list_friend_runs`, `get_aggregate_stats`, `list_anon_traces`, `get_demographics`) 호출.
+Restart Claude Desktop. Then ask in plain English: *"Analyze the pace trend of my recent runs"* — Claude will pick the right tool (`list_my_runs`, `get_run_detail`, `list_friend_runs`, `get_aggregate_stats`, `list_anon_traces`, `get_demographics`) and respond.
 
-## 응답 shape (요약)
+## Response shapes
 
-자세한 schema 는 `lib/auth.ts` + `app/api/v1/*/route.ts` + supabase migration (`20260510000000_hackathon_mcp.sql`) 참고.
+For full schemas see `lib/auth.ts`, `app/api/v1/*/route.ts`, and the Supabase migrations under `kyro_frontend/supabase/migrations/20260510*_hackathon_mcp*.sql`.
 
 ## Error codes
 
-| Code | 의미 |
-|---|---|
-| 400 `invalid_input` | request params 오류 |
-| 401 `missing_bearer_token` / `invalid_token_format` / `token_invalid_or_expired` | 인증 실패 |
-| 404 `not_found_or_no_permission` | run 없음 또는 audience 룰 미통과 |
-| 429 `rate_limited_per_minute` (60/min) / `rate_limited_per_day` (5000/day) | 레이트 제한 |
-| 500 `rpc_failed` | Supabase RPC 오류 |
+| Status | Code | Meaning |
+|---|---|---|
+| 400 | `invalid_input` | Request params malformed |
+| 401 | `missing_bearer_token` / `invalid_token_format` / `token_invalid_or_expired` | Auth failed |
+| 404 | `not_found_or_no_permission` | Run not found or audience rule didn't permit you |
+| 429 | `rate_limited_per_minute` (60/min) / `rate_limited_per_day` (5,000/day) | Rate limit hit — see `Retry-After` header |
+| 500 | `rpc_failed` / `verify_failed` | Internal/Supabase error |
 
-## 행사 종료 후 (운영자)
+## Privacy / PDPA
 
-- 모든 토큰 일괄 무효: `UPDATE public.mcp_personal_access_tokens SET revoked_at = now()`
-- Vercel 프로젝트 remove
-- 필요 시 readonly DB role + RPC + 테이블 모두 drop
+This API exposes participant data during the event. By accepting a token you agree:
 
-## Privacy
+- **Use only your own data and the publicly-shared data of users you follow** for your hackathon project.
+- **Do not attempt to identify or de-anonymize** other users from the anonymous datasets.
+- **Cross-border**: the API runs in Singapore (Vercel `sin1`) and reads from a Supabase project hosted in `ap-northeast-2` (Seoul). Participant data may transit between these regions for the duration of your queries; nothing is persisted on the hackathon infrastructure beyond token records.
+- **Retention**: tokens are revoked at the event end. We recommend deleting any participant data you've downloaded after the event.
+- KYRO's full privacy policy applies. The strictest of KYRO's privacy policy, Singapore PDPA, and the data subject's local law governs.
 
-KYRO 개인정보처리방침 (특히 섹션 10 외부 AI 처리 제한) 의 정신에 부합하도록:
-- 본인이 받은 데이터로만 작품 만들기
-- 다른 사용자 식별 시도 금지
-- 행사 종료 후 본인 보관 데이터 삭제 권장
+## Self-service token revocation
+
+If you want to invalidate your own token mid-event, contact the organizer with the **first 6 characters** of your token (e.g. `kyro_pa`). The organizer can revoke without exposing the full token. (The token's hash is the only thing the server stores — the raw token is never persisted.)
+
+## Operations (organizer)
+
+See `DEPLOY.md` for the operator's setup + remote-ops + sunset checklist.

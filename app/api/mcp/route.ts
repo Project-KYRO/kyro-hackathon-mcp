@@ -10,7 +10,7 @@ const TOOLS = [
   {
     name: 'list_my_runs',
     description:
-      '본인의 KYRO 러닝 목록을 가져옵니다 (최신순). GPS trace 는 list 에 포함되지 않으며, get_run_detail 로 받습니다. List the authenticated user’s own KYRO runs (most recent first).',
+      "List the authenticated user's own KYRO runs (most recent first). GPS traces are not included here — use get_run_detail for the full track and splits.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -25,7 +25,7 @@ const TOOLS = [
   {
     name: 'get_run_detail',
     description:
-      '특정 러닝의 상세를 가져옵니다 — GPS trace (GeoJSON LineString) + km 별 split (페이스, 고도) 포함. 본인 러닝 또는 follow 한 사용자의 audience 통과 러닝만. Get one run with full GPS trace and per-km splits.',
+      "Get a single run's detail including GPS trace (GeoJSON LineString) and per-km splits (pace, elevation). Only works for the caller's own runs or for follows whose audience rule allows the caller.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -37,7 +37,7 @@ const TOOLS = [
   {
     name: 'list_friend_runs',
     description:
-      '본인이 follow 한 사용자들의 audience 통과 러닝 목록 (audience public / follower / mutual_friend 룰 적용). List runs from users the authenticated user follows.',
+      'List runs from users the caller follows, filtered by each run\'s audience rule (public / follower / mutual_friend).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -49,13 +49,13 @@ const TOOLS = [
   {
     name: 'get_aggregate_stats',
     description:
-      'KYRO 전체의 익명 집계 통계 — 시간대 / 요일 / 거리 히스토그램 / 페이스 히스토그램 / 도시별 활성도 (식별 불가, 90일 window). KYRO-wide anonymous aggregate stats.',
+      'KYRO-wide anonymous aggregate stats over the last 90 days — hourly + day-of-week distribution, distance + pace histograms, region activity. No PII, no per-user data.',
     inputSchema: { type: 'object', properties: {} },
   },
   {
     name: 'list_anon_traces',
     description:
-      'KYRO 전체의 익명화된 GPS trace 데이터셋 — 한 row = 한 러닝. user 와 unlinkable, 출발/도착 5%-95% clip + 50m grid + 시간 hour bucket + k≥3 anonymity (같은 시간·지역에 3명 이상 활동했을 때만). km 별 split 포함 (페이스 / 고도 / 보간 위치). KYRO-wide anonymous trace dataset.',
+      'KYRO-wide anonymized GPS trace dataset. One row = one run. Unlinkable to users (endpoint 5%-95% clip, 50m grid round, hour bucket, daily run_id randomization, k>=3 anonymity by hour+region). Includes per-km splits with pace, elevation, and interpolated coarse-grid lat/lng.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -64,7 +64,7 @@ const TOOLS = [
         region: {
           type: 'string',
           description:
-            'Optional region filter (place_region_label, e.g. "서울"). Matches exact label.',
+            'Optional region filter (place_region_label, e.g. "Singapore" / "서울"). Matches exact label.',
         },
       },
     },
@@ -72,7 +72,7 @@ const TOOLS = [
   {
     name: 'get_demographics',
     description:
-      'KYRO active 사용자의 성별·연령대·교차 분포 (share 비율만, total/count 미노출, k≥5 anonymity). KYRO active-user demographics — share-only, no totals exposed.',
+      'KYRO active-user demographics — share-only distributions of gender and age band (and their cross). No totals or counts exposed. k>=5 anonymity.',
     inputSchema: { type: 'object', properties: {} },
   },
 ];

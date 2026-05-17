@@ -12,8 +12,9 @@ export default function Home() {
     >
       <h1 style={{ fontSize: 32, marginBottom: 8 }}>KYRO Hackathon API</h1>
       <p style={{ color: '#a1a1aa', marginBottom: 32 }}>
-        2026-05-10 캐주얼 해커톤용 read-only 데이터 API. 본인의 KYRO 러닝 + 친구
-        러닝 + KYRO 전체 익명 통계·trace 데이터를 가져갈 수 있습니다.
+        Read-only data API for KYRO hackathon participants. Build with your own
+        KYRO runs, the public runs of users you follow, and a fully anonymized
+        KYRO-wide dataset (k-anonymity preserved).
       </p>
 
       <Link
@@ -29,38 +30,42 @@ export default function Home() {
           marginBottom: 32,
         }}
       >
-        토큰 발급받기 →
+        Get my token →
       </Link>
 
-      <h2 style={{ fontSize: 20, marginTop: 32 }}>Endpoint</h2>
+      <h2 style={{ fontSize: 20, marginTop: 32 }}>Endpoints</h2>
       <ul style={{ paddingLeft: 20 }}>
         <li>
-          <code>GET /api/v1/runs</code> — 본인 러닝 목록
+          <code>GET /api/v1/runs</code> — your own runs
         </li>
         <li>
-          <code>GET /api/v1/runs/:id</code> — 러닝 상세 (GPS trace + splits)
+          <code>GET /api/v1/runs/:id</code> — run detail (GPS trace + splits)
         </li>
         <li>
-          <code>GET /api/v1/friends/runs</code> — 친구 러닝 목록
+          <code>GET /api/v1/friends/runs</code> — runs from people you follow
         </li>
         <li>
-          <code>GET /api/v1/aggregates</code> — KYRO 전체 익명 집계
+          <code>GET /api/v1/aggregates</code> — KYRO-wide anonymous aggregates
         </li>
         <li>
-          <code>GET /api/v1/anon-traces</code> — KYRO 전체 익명 trace
+          <code>GET /api/v1/anon-traces</code> — KYRO-wide anonymous trace dataset
         </li>
         <li>
-          <code>POST /api/mcp</code> — MCP transport (Claude Desktop 등)
+          <code>GET /api/v1/demographics</code> — anonymous user demographics
+        </li>
+        <li>
+          <code>POST /api/mcp</code> — MCP transport (Claude Desktop, Cursor, …)
         </li>
       </ul>
 
       <p style={{ marginTop: 32, color: '#a1a1aa', fontSize: 14 }}>
-        모든 endpoint Bearer 인증. 토큰 만료: 행사 종료 +24h.{' '}
+        All endpoints are Bearer authenticated. Tokens auto-expire after the
+        event.{' '}
         <a
           href="https://github.com/Project-KYRO/kyro-hackathon-mcp"
           style={{ color: '#22c55e' }}
         >
-          가이드 + 예제 코드
+          Full guide + sample code
         </a>
       </p>
     </main>

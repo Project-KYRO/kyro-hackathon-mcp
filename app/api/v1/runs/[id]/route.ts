@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { authenticate } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
-import { jsonOk, jsonError, corsPreflight } from '@/lib/response';
+import { jsonOk, jsonError, corsPreflight, respondAuthError } from '@/lib/response';
 
 export async function OPTIONS() {
   return corsPreflight();
@@ -12,7 +12,7 @@ export async function GET(
   ctx: { params: Promise<{ id: string }> }
 ) {
   const auth = await authenticate(req);
-  if (!auth.ok) return jsonError(auth.status, auth.error);
+  if (!auth.ok) return respondAuthError(auth);
 
   const { id } = await ctx.params;
   if (!id) return jsonError(400, 'missing_run_id');

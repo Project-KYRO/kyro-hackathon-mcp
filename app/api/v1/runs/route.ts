@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { authenticate } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
-import { jsonOk, jsonError, corsPreflight } from '@/lib/response';
+import { jsonOk, jsonError, corsPreflight, respondAuthError } from '@/lib/response';
 
 export async function OPTIONS() {
   return corsPreflight();
@@ -9,7 +9,7 @@ export async function OPTIONS() {
 
 export async function GET(req: NextRequest) {
   const auth = await authenticate(req);
-  if (!auth.ok) return jsonError(auth.status, auth.error);
+  if (!auth.ok) return respondAuthError(auth);
 
   const url = new URL(req.url);
   const limit = clamp(Number(url.searchParams.get('limit') ?? 50), 1, 200);
