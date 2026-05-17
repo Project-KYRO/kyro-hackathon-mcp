@@ -1,10 +1,11 @@
 import { NextRequest } from 'next/server';
 import { supabaseAdmin } from './supabase';
 import { hashToken } from './pat';
+import { checkRateLimit } from './ratelimit';
 
 export type AuthResult =
   | { ok: true; userId: string }
-  | { ok: false; status: number; error: string };
+  | { ok: false; status: number; error: string; retryAfterSec?: number };
 
 export async function authenticate(req: NextRequest): Promise<AuthResult> {
   const header = req.headers.get('authorization') || '';
@@ -28,6 +29,18 @@ export async function authenticate(req: NextRequest): Promise<AuthResult> {
   }
   if (!data) {
     return { ok: false, status: 401, error: 'token_invalid_or_expired' };
+  }
+
+  // Token verified — now enforce per-token rate limit. We do this AFTER verify
+  // so unauthenticated requests don't hit Redis (cheap path stays cheap).
+  const rl = await checkRateLimit(raw);
+  if (!rl.ok) {
+    return {
+      ok: false,
+      status: 429,
+      error: rl.reason === 'minute' ? 'rate_limited_per_minute' : 'rate_limited_per_day',
+      retryAfterSec: rl.retryAfterSec,
+    };
   }
 
   return { ok: true, userId: data as string };

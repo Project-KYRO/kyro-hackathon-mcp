@@ -1,19 +1,22 @@
 {
   "name": "kyro-hackathon-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "KYRO Hackathon read-only data API + MCP server. Throwaway infra for the 2026-05-10 event.",
+  "description": "KYRO Hackathon read-only data API + MCP server. Throwaway infra, reused per event.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "issue-pat": "tsx tools/issue-pat.ts"
+    "typecheck": "tsc --noEmit",
+    "issue-pat": "tsx tools/issue-pat.ts",
+    "kill-switch": "tsx tools/kill-switch.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.45.4",
+    "@upstash/ratelimit": "^2.0.5",
+    "@upstash/redis": "^1.34.3",
     "next": "16.2.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

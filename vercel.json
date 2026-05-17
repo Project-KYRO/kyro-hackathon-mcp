@@ -1,0 +1,18 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["sin1"],
+  "crons": [
+    {
+      "path": "/api/cron/auto-revoke",
+      "schedule": "0 * * * *"
+    }
+  ],
+  "functions": {
+    "app/api/v1/anon-traces/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/v1/aggregates/route.ts": {
+      "maxDuration": 30
+    }
+  }
+}
