@@ -289,9 +289,9 @@ export function RegisterPageClient({
                 <p style={{ ...hintStyle, marginTop: 6 }}>
                   Apple Hide-My-Email users: enter your{' '}
                   <code style={inlineCode}>@privaterelay.appleid.com</code>{' '}
-                  address (find it in iPhone Settings → Apple ID → Sign in with
-                  Apple → KYRO), or use the &quot;Continue with Apple&quot;
-                  button above.
+                  address (iPhone Settings → your name → Sign in &amp; Security
+                  → Sign in with Apple → KYRO). Apple forwards the sign-in
+                  email to your real inbox.
                 </p>
                 <button
                   onClick={() => signIn('email')}
