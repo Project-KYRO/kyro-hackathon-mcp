@@ -5,7 +5,7 @@
 //   node js-fetch-demo.mjs
 
 const TOKEN = process.env.KYRO_PAT;
-const BASE = process.env.KYRO_BASE_URL || 'https://kyro-hackathon-mcp.vercel.app';
+const BASE = process.env.KYRO_BASE_URL || 'https://hackathon.kyro.team';
 if (!TOKEN) throw new Error('Set KYRO_PAT env first');
 
 const headers = { Authorization: `Bearer ${TOKEN}` };
