@@ -4,7 +4,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Script from 'next/script';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 
-type Step = 'choose' | 'emailSent' | 'gate' | 'issuing' | 'reveal' | 'closed';
+type Step =
+  | 'choose'
+  | 'emailSent'
+  | 'gate'
+  | 'issuing'
+  | 'reveal'
+  | 'closed'
+  | 'nickname';
 type Provider = 'apple' | 'google' | 'kakao' | 'email';
 
 interface TokenInfo {
@@ -53,6 +60,7 @@ export function RegisterPageClient({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [hasSession, setHasSession] = useState(false);
+  const [nickname, setNickname] = useState('');
   const turnstileRef = useRef<HTMLDivElement | null>(null);
   const turnstileWidgetId = useRef<string | null>(null);
   const turnstileEnabled = !!turnstileSiteKey;
@@ -110,7 +118,10 @@ export function RegisterPageClient({
   }, [turnstileSiteKey]);
 
   useEffect(() => {
-    if (step === 'gate' && turnstileEnabled) {
+    if ((step === 'gate' || step === 'nickname') && turnstileEnabled) {
+      // Reset previous widget — we re-mount per step entry so the widget appears
+      // in whichever form (gate / nickname) is currently shown.
+      turnstileWidgetId.current = null;
       const t = setInterval(() => {
         if (window.turnstile) {
           mountTurnstile();
@@ -215,6 +226,72 @@ export function RegisterPageClient({
     }
   }
 
+  async function issueByNickname() {
+    setError(null);
+    if (!nickname.trim()) {
+      setError('Enter your KYRO nickname.');
+      return;
+    }
+    if (!passcode.trim()) {
+      setError('Enter the event passcode from the organizer.');
+      return;
+    }
+    if (!consent) {
+      setError('Please confirm consent to continue.');
+      return;
+    }
+    if (turnstileEnabled && !turnstileToken) {
+      setError('Complete the bot-check first.');
+      return;
+    }
+    setBusy(true);
+    setStep('issuing');
+    try {
+      const res = await fetch('/api/auth/issue-by-nickname', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nickname: nickname.trim(),
+          passcode: passcode.trim(),
+          consent,
+          turnstileToken: turnstileEnabled ? turnstileToken : null,
+        }),
+      });
+      const payload = await res.json();
+      if (!res.ok) {
+        const msg =
+          payload.error === 'nickname_not_found'
+            ? 'No KYRO user with that nickname. Check spelling — it must be your current nickname (case-sensitive).'
+            : payload.error === 'nickname_not_unique'
+              ? 'Multiple KYRO users share this nickname (it looks auto-generated). Open the KYRO app, change to a unique nickname, then retry.'
+              : payload.error === 'token_already_issued'
+                ? 'A token is already active for this KYRO user. Ask the organizer to revoke it before retrying.'
+                : payload.error === 'invalid_passcode'
+                  ? 'Wrong event passcode. Ask the organizer.'
+                  : payload.error === 'turnstile_failed'
+                    ? 'Bot-check failed. Refresh and retry.'
+                    : payload.error === 'registration_closed'
+                      ? 'Registration is closed.'
+                      : payload.error === 'event_already_ended'
+                        ? 'The event window has ended.'
+                        : 'Could not issue token by nickname. Verify your details and retry.';
+        throw new Error(msg);
+      }
+      setToken(payload as TokenInfo);
+      setStep('reveal');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Issue failed');
+      if (window.turnstile && turnstileWidgetId.current) {
+        window.turnstile.reset(turnstileWidgetId.current);
+        setTurnstileToken(null);
+      }
+      setStep('nickname');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       {turnstileEnabled && (
@@ -286,13 +363,6 @@ export function RegisterPageClient({
                   placeholder="you@example.com"
                   style={inputStyle}
                 />
-                <p style={{ ...hintStyle, marginTop: 6 }}>
-                  Apple Hide-My-Email users: enter your{' '}
-                  <code style={inlineCode}>@privaterelay.appleid.com</code>{' '}
-                  address (iPhone Settings → your name → Sign in &amp; Security
-                  → Sign in with Apple → KYRO). Apple forwards the sign-in
-                  email to your real inbox.
-                </p>
                 <button
                   onClick={() => signIn('email')}
                   disabled={busy || !email}
@@ -302,6 +372,29 @@ export function RegisterPageClient({
                 </button>
               </>
             )}
+
+            <div style={dividerStyle}>trouble signing in?</div>
+            <p style={{ ...hintStyle, marginTop: 0 }}>
+              <strong style={{ color: '#e4e4e7' }}>
+                Apple Hide-My-Email users
+              </strong>{' '}
+              or anyone whose magic-link email never arrives: use your KYRO
+              nickname instead. You&apos;ll need the event passcode from the
+              organizer.
+            </p>
+            <button
+              onClick={() => {
+                setError(null);
+                setStep('nickname');
+              }}
+              disabled={busy}
+              style={{
+                ...ghostBtnStyle,
+                marginTop: 8,
+              }}
+            >
+              Use my KYRO nickname →
+            </button>
           </>
         )}
 
@@ -384,6 +477,98 @@ export function RegisterPageClient({
               )}
             >
               {busy ? 'Issuing…' : 'Issue my token'}
+            </button>
+          </>
+        )}
+
+        {step === 'nickname' && (
+          <>
+            <h2 style={sectionHeaderStyle}>Issue by KYRO nickname</h2>
+            <p style={hintStyle}>
+              For Apple Hide-My-Email users and anyone whose magic-link email
+              didn&apos;t arrive. Token will be issued directly — make sure
+              you&apos;re entering your <em>own</em> current KYRO nickname.
+            </p>
+
+            <label style={labelStyle}>Your KYRO nickname</label>
+            <input
+              type="text"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              placeholder="exact current nickname from KYRO app"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              style={inputStyle}
+            />
+            <p style={{ ...hintStyle, marginTop: 6 }}>
+              If your nickname is auto-generated (e.g.{' '}
+              <em>날렵한 독수리</em>) and shared with many users, the request
+              will be refused. Open the KYRO app and customize it first.
+            </p>
+
+            <label style={{ ...labelStyle, marginTop: 16 }}>
+              Event passcode (from organizer)
+            </label>
+            <input
+              type="text"
+              value={passcode}
+              onChange={(e) => setPasscode(e.target.value.toUpperCase())}
+              placeholder="e.g. AB23CD"
+              maxLength={12}
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              style={{ ...inputStyle, letterSpacing: 2, fontFamily: 'monospace' }}
+            />
+
+            {turnstileEnabled && (
+              <div style={{ marginTop: 20 }} ref={turnstileRef} />
+            )}
+
+            <label style={consentLabelStyle}>
+              <input
+                type="checkbox"
+                checked={consent}
+                onChange={(e) => setConsent(e.target.checked)}
+                style={{ marginTop: 4 }}
+              />
+              <span>
+                I confirm this is my own KYRO nickname. I agree that, during the
+                event, this token grants read-only access to my KYRO data and
+                the public runs of users I follow. Tokens auto-expire after the
+                event ends. KYRO-wide anonymized datasets are also accessible.
+              </span>
+            </label>
+
+            <button
+              onClick={issueByNickname}
+              disabled={
+                busy ||
+                !nickname.trim() ||
+                !passcode ||
+                !consent ||
+                (turnstileEnabled && !turnstileToken)
+              }
+              style={primaryBtnStyle(
+                busy ||
+                  !nickname.trim() ||
+                  !passcode ||
+                  !consent ||
+                  (turnstileEnabled && !turnstileToken),
+              )}
+            >
+              {busy ? 'Issuing…' : 'Issue my token'}
+            </button>
+
+            <button
+              onClick={() => {
+                setError(null);
+                setStep('choose');
+              }}
+              style={ghostBtnStyle}
+            >
+              ← Back to sign-in options
             </button>
           </>
         )}
