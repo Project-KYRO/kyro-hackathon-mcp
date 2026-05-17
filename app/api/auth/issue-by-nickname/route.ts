@@ -8,6 +8,10 @@ import {
 } from '@/lib/response';
 import { env } from '@/lib/env';
 import { verifyTurnstile, clientIpFrom } from '@/lib/turnstile';
+import { passcodeMatches } from '@/lib/passcode';
+import { checkIssuanceRateLimit } from '@/lib/ratelimit';
+
+const MAX_NICKNAME_LEN = 100;
 
 export async function OPTIONS(req: NextRequest) {
   return corsAuthPreflight(req);
@@ -35,6 +39,14 @@ export async function POST(req: NextRequest) {
     return jsonAuthError(req, 403, 'registration_closed');
   }
 
+  const ip = clientIpFrom(req);
+  const rl = await checkIssuanceRateLimit(ip);
+  if (!rl.ok) {
+    const res = jsonAuthError(req, 429, 'too_many_requests');
+    if (rl.retryAfterSec) res.headers.set('Retry-After', String(rl.retryAfterSec));
+    return res;
+  }
+
   let body: {
     nickname?: string;
     passcode?: string;
@@ -48,16 +60,19 @@ export async function POST(req: NextRequest) {
   }
 
   const nickname = (body.nickname || '').trim();
-  const passcode = (body.passcode || '').trim().toUpperCase();
+  const passcode = body.passcode || '';
   const consent = !!body.consent;
 
   if (!nickname) return jsonAuthError(req, 400, 'nickname_required');
+  if (nickname.length > MAX_NICKNAME_LEN) {
+    return jsonAuthError(req, 400, 'nickname_too_long');
+  }
   if (!consent) return jsonAuthError(req, 400, 'consent_required');
-  if (passcode !== env.eventPasscode().toUpperCase()) {
+  if (!passcodeMatches(passcode)) {
     return jsonAuthError(req, 401, 'invalid_passcode');
   }
 
-  const turnstile = await verifyTurnstile(body.turnstileToken ?? null, clientIpFrom(req));
+  const turnstile = await verifyTurnstile(body.turnstileToken ?? null, ip);
   if (!turnstile.ok) {
     console.warn('[issue-by-nickname] turnstile failed:', turnstile.reason);
     return jsonAuthError(req, 401, 'turnstile_failed');
@@ -131,7 +146,7 @@ export async function POST(req: NextRequest) {
   }
 
   console.log(
-    `[issue-by-nickname] issued ok nickname="${nickname}" user_id="${userId}" ip="${clientIpFrom(req)}"`,
+    `[issue-by-nickname] issued ok nickname="${nickname}" user_id="${userId}" ip="${ip}"`,
   );
 
   const baseUrl = env.baseUrl() || new URL(req.url).origin;
