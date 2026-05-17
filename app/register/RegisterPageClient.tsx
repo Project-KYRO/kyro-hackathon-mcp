@@ -61,6 +61,7 @@ export function RegisterPageClient({
   const [busy, setBusy] = useState(false);
   const [hasSession, setHasSession] = useState(false);
   const [nickname, setNickname] = useState('');
+  const [nicknameUpdated, setNicknameUpdated] = useState(false);
   const turnstileRef = useRef<HTMLDivElement | null>(null);
   const turnstileWidgetId = useRef<string | null>(null);
   const turnstileEnabled = !!turnstileSiteKey;
@@ -228,6 +229,12 @@ export function RegisterPageClient({
 
   async function issueByNickname() {
     setError(null);
+    if (!nicknameUpdated) {
+      setError(
+        'You must update your nickname in the KYRO app and verify it’s unique first.',
+      );
+      return;
+    }
     if (!nickname.trim()) {
       setError('Enter your KYRO nickname.');
       return;
@@ -486,11 +493,67 @@ export function RegisterPageClient({
             <h2 style={sectionHeaderStyle}>Issue by KYRO nickname</h2>
             <p style={hintStyle}>
               For Apple Hide-My-Email users and anyone whose magic-link email
-              didn&apos;t arrive. Token will be issued directly — make sure
-              you&apos;re entering your <em>own</em> current KYRO nickname.
+              didn&apos;t arrive. Token will be issued directly — so we need
+              you to <strong>claim a unique nickname inside the KYRO app
+              first</strong>.
             </p>
 
-            <label style={labelStyle}>Your KYRO nickname</label>
+            <div style={mandatoryBoxStyle}>
+              <div style={mandatoryHeaderStyle}>
+                Required before continuing
+              </div>
+              <ol style={mandatoryListStyle}>
+                <li>
+                  Open the <strong>KYRO app</strong>.
+                </li>
+                <li>
+                  Go to{' '}
+                  <strong>
+                    My Activity (내 활동) → Settings (설정) → Edit My Info
+                    (내 정보 수정)
+                  </strong>
+                  .
+                </li>
+                <li>
+                  Change your nickname to something <strong>unique</strong>{' '}
+                  (don&apos;t skip — even non-default nicknames can be
+                  shared).
+                </li>
+                <li>
+                  Tap <strong>Check duplicate (중복 확인)</strong>. It must
+                  show that the nickname is available — if it&apos;s taken,
+                  try another.
+                </li>
+                <li>
+                  Save the new nickname, then come back here and enter the{' '}
+                  <strong>exact same nickname</strong> below.
+                </li>
+              </ol>
+              <p style={mandatoryFootnoteStyle}>
+                This step is mandatory. Tokens are issued <em>directly</em>{' '}
+                from this form (no email or OAuth round-trip), so the
+                in-app uniqueness check is what proves the nickname is
+                yours.
+              </p>
+            </div>
+
+            <label style={updatedCheckboxStyle}>
+              <input
+                type="checkbox"
+                checked={nicknameUpdated}
+                onChange={(e) => setNicknameUpdated(e.target.checked)}
+                style={{ marginTop: 4 }}
+              />
+              <span>
+                <strong>I completed the steps above in the KYRO app</strong>{' '}
+                — I updated my nickname and passed the duplicate check (중복
+                확인 통과).
+              </span>
+            </label>
+
+            <label style={{ ...labelStyle, marginTop: 24 }}>
+              Your (updated) KYRO nickname
+            </label>
             <input
               type="text"
               value={nickname}
@@ -500,12 +563,8 @@ export function RegisterPageClient({
               autoCapitalize="off"
               spellCheck={false}
               style={inputStyle}
+              disabled={!nicknameUpdated}
             />
-            <p style={{ ...hintStyle, marginTop: 6 }}>
-              If your nickname is auto-generated (e.g.{' '}
-              <em>날렵한 독수리</em>) and shared with many users, the request
-              will be refused. Open the KYRO app and customize it first.
-            </p>
 
             <label style={{ ...labelStyle, marginTop: 16 }}>
               Event passcode (from organizer)
@@ -520,6 +579,7 @@ export function RegisterPageClient({
               autoCorrect="off"
               spellCheck={false}
               style={{ ...inputStyle, letterSpacing: 2, fontFamily: 'monospace' }}
+              disabled={!nicknameUpdated}
             />
 
             {turnstileEnabled && (
@@ -531,6 +591,7 @@ export function RegisterPageClient({
                 type="checkbox"
                 checked={consent}
                 onChange={(e) => setConsent(e.target.checked)}
+                disabled={!nicknameUpdated}
                 style={{ marginTop: 4 }}
               />
               <span>
@@ -545,6 +606,7 @@ export function RegisterPageClient({
               onClick={issueByNickname}
               disabled={
                 busy ||
+                !nicknameUpdated ||
                 !nickname.trim() ||
                 !passcode ||
                 !consent ||
@@ -552,6 +614,7 @@ export function RegisterPageClient({
               }
               style={primaryBtnStyle(
                 busy ||
+                  !nicknameUpdated ||
                   !nickname.trim() ||
                   !passcode ||
                   !consent ||
@@ -731,6 +794,53 @@ const consentLabelStyle: React.CSSProperties = {
   fontSize: 13,
   color: '#a1a1aa',
   lineHeight: 1.5,
+};
+
+const mandatoryBoxStyle: React.CSSProperties = {
+  background: '#451a03',
+  border: '1px solid #92400e',
+  borderRadius: 10,
+  padding: '14px 16px',
+  margin: '12px 0 16px',
+};
+
+const mandatoryHeaderStyle: React.CSSProperties = {
+  fontSize: 12,
+  color: '#fcd34d',
+  fontWeight: 700,
+  textTransform: 'uppercase',
+  letterSpacing: 1.2,
+  marginBottom: 10,
+};
+
+const mandatoryListStyle: React.CSSProperties = {
+  paddingLeft: 20,
+  margin: 0,
+  fontSize: 13.5,
+  color: '#fde68a',
+  lineHeight: 1.7,
+};
+
+const mandatoryFootnoteStyle: React.CSSProperties = {
+  fontSize: 12,
+  color: '#fbbf24',
+  marginTop: 10,
+  marginBottom: 0,
+  lineHeight: 1.5,
+};
+
+const updatedCheckboxStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: 8,
+  margin: '0 0 8px',
+  padding: '12px 14px',
+  fontSize: 13.5,
+  color: '#e4e4e7',
+  lineHeight: 1.5,
+  background: '#0f1f0f',
+  border: '1px solid #166534',
+  borderRadius: 8,
 };
 
 const inputStyle: React.CSSProperties = {
