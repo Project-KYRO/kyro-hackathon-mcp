@@ -8,6 +8,8 @@ import {
 } from '@/lib/response';
 import { env } from '@/lib/env';
 import { verifyTurnstile, clientIpFrom } from '@/lib/turnstile';
+import { passcodeMatches } from '@/lib/passcode';
+import { checkIssuanceRateLimit } from '@/lib/ratelimit';
 
 export async function OPTIONS(req: NextRequest) {
   return corsAuthPreflight(req);
@@ -32,6 +34,14 @@ export async function POST(req: NextRequest) {
     return jsonAuthError(req, 403, 'registration_closed');
   }
 
+  const ip = clientIpFrom(req);
+  const rl = await checkIssuanceRateLimit(ip);
+  if (!rl.ok) {
+    const res = jsonAuthError(req, 429, 'too_many_requests');
+    if (rl.retryAfterSec) res.headers.set('Retry-After', String(rl.retryAfterSec));
+    return res;
+  }
+
   const supabaseAuth = req.headers.get('authorization') || '';
   const supabaseMatch = supabaseAuth.match(/^Bearer\s+(.+)$/i);
   if (!supabaseMatch) {
@@ -39,13 +49,13 @@ export async function POST(req: NextRequest) {
   }
   const supabaseJwt = supabaseMatch[1].trim();
 
-  const passcode = (req.headers.get('x-event-passcode') || '').trim().toUpperCase();
-  if (passcode !== env.eventPasscode().toUpperCase()) {
+  const passcode = req.headers.get('x-event-passcode') || '';
+  if (!passcodeMatches(passcode)) {
     return jsonAuthError(req, 401, 'registration_unavailable');
   }
 
   const turnstileToken = req.headers.get('x-turnstile-token');
-  const turnstile = await verifyTurnstile(turnstileToken, clientIpFrom(req));
+  const turnstile = await verifyTurnstile(turnstileToken, ip);
   if (!turnstile.ok) {
     console.warn('[issue-pat] turnstile failed:', turnstile.reason);
     return jsonAuthError(req, 401, 'registration_unavailable');

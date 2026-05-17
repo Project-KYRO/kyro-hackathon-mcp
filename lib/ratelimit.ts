@@ -8,11 +8,28 @@ import { jsonError } from './response';
 // not raw token, so logs/Redis never contain the raw value.
 let minuteLimiter: Ratelimit | null = null;
 let dailyLimiter: Ratelimit | null = null;
+// Issuance-side limit: per-IP across both token-issuance endpoints (issue-pat,
+// issue-by-nickname). Protects against passcode brute-force + nickname
+// enumeration / pre-emptive grab. Fails open if Redis is absent (Simple mode).
+let issuanceLimiter: Ratelimit | null = null;
 let redisError: Error | null = null;
 
 function getRedis(): Redis | null {
   try {
-    return Redis.fromEnv();
+    // Vercel's Upstash integration injects KV_REST_API_URL / KV_REST_API_TOKEN
+    // (legacy KV-prefixed names). Self-managed Upstash uses UPSTASH_REDIS_REST_*.
+    // Support both — explicit construction beats fromEnv()'s narrower lookup.
+    const url =
+      process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+    const token =
+      process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+    if (!url || !token) {
+      redisError = new Error(
+        'No Upstash env (KV_REST_API_URL/TOKEN or UPSTASH_REDIS_REST_URL/TOKEN). Rate limit will fail open.',
+      );
+      return null;
+    }
+    return new Redis({ url, token });
   } catch (e) {
     redisError = e as Error;
     return null;
@@ -43,6 +60,21 @@ function getDaily(): Ratelimit | null {
     prefix: 'kyro:rl:day',
   });
   return dailyLimiter;
+}
+
+function getIssuance(): Ratelimit | null {
+  if (issuanceLimiter) return issuanceLimiter;
+  const redis = getRedis();
+  if (!redis) return null;
+  issuanceLimiter = new Ratelimit({
+    redis,
+    // 5 issuance attempts per IP per hour. Legit retries (typos, transient
+    // failures) fit; serial pre-emptive grab attacks do not.
+    limiter: Ratelimit.slidingWindow(5, '1 h'),
+    analytics: false,
+    prefix: 'kyro:rl:issue',
+  });
+  return issuanceLimiter;
 }
 
 interface RateLimitResult {
@@ -100,6 +132,31 @@ export async function checkRateLimit(rawToken: string): Promise<RateLimitResult>
     };
   } catch (e: unknown) {
     console.error('[ratelimit] check failed, failing open:', e);
+    return { ok: true };
+  }
+}
+
+// Per-IP issuance limit — call before any DB work in token-issuance routes.
+// Returns ok=true when Redis is absent (Simple mode) so deployments without
+// Upstash continue to function.
+export async function checkIssuanceRateLimit(ip: string | null): Promise<{
+  ok: boolean;
+  retryAfterSec?: number;
+}> {
+  if (!ip) return { ok: true };
+  const limiter = getIssuance();
+  if (!limiter) return { ok: true };
+  try {
+    const result = await limiter.limit(ip);
+    if (!result.success) {
+      return {
+        ok: false,
+        retryAfterSec: Math.ceil(Math.max(0, result.reset - Date.now()) / 1000),
+      };
+    }
+    return { ok: true };
+  } catch (e: unknown) {
+    console.error('[ratelimit-issuance] check failed, failing open:', e);
     return { ok: true };
   }
 }
