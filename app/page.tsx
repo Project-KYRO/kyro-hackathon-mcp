@@ -321,9 +321,17 @@ for (const t of traces.traces) {
             <strong>Apple Hide-My-Email</strong> users.
           </li>
           <li>
-            <strong>Auto-generated KYRO nickname?</strong> (Names like{' '}
-            <em>날렵한 독수리</em> are shared by many users.) Open the KYRO app
-            and customize your nickname first, then retry.
+            <strong>Using the nickname path?</strong> You{' '}
+            <strong>must</strong> first open the KYRO app and update your
+            nickname there:{' '}
+            <strong>
+              My Activity (내 활동) → Settings (설정) → Edit My Info (내 정보
+              수정)
+            </strong>
+            . Tap <strong>Check duplicate (중복 확인)</strong> — it must show
+            the nickname is available. This applies to everyone using the
+            nickname path, not only auto-generated nicknames (e.g.{' '}
+            <em>날렵한 독수리</em>) which are shared by many users.
           </li>
           <li>
             <strong>Anything else broken?</strong> Ping the organizer. We can
