@@ -15,10 +15,14 @@ export async function verifyTurnstile(
   token: string | null,
   remoteIp: string | null,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const secret = env.turnstileSecret();
+  // No secret configured → Turnstile is off for this deployment. Treat as pass.
+  if (!secret) return { ok: true };
+
   if (!token) return { ok: false, reason: 'missing_turnstile_token' };
 
   const body = new URLSearchParams({
-    secret: env.turnstileSecret(),
+    secret,
     response: token,
   });
   if (remoteIp) body.append('remoteip', remoteIp);

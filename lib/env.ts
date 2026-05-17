@@ -24,8 +24,9 @@ export const env = {
   expiresAt: () =>
     need('HACKATHON_PAT_EXPIRES_AT', process.env.HACKATHON_PAT_EXPIRES_AT),
   baseUrl: () => process.env.NEXT_PUBLIC_BASE_URL || '',
-  turnstileSecret: () =>
-    need('TURNSTILE_SECRET_KEY', process.env.TURNSTILE_SECRET_KEY),
+  // Optional — if unset, Turnstile verification is skipped (set when the operator
+  // has provisioned Cloudflare Turnstile, otherwise null disables that gate).
+  turnstileSecret: (): string | null => process.env.TURNSTILE_SECRET_KEY || null,
   eventPasscode: () => need('EVENT_PASSCODE', process.env.EVENT_PASSCODE),
   cronSecret: () => need('CRON_SECRET', process.env.CRON_SECRET),
   registrationOpen: () =>

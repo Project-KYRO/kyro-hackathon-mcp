@@ -2,14 +2,23 @@
 
 Audience: the organizer running the event remotely. Set up once, monitor + react during the event, and run the sunset checklist after.
 
+## Mode
+
+The deployment supports two modes selected by env presence:
+
+- **Simple mode (default)**: no Cloudflare Turnstile, no Upstash Redis. Bot protection relies on OAuth real-account requirement + event passcode. Rate limit defers to Vercel platform DDoS + manual kill-switch.
+- **Full mode**: provision Cloudflare Turnstile (sections 1.1) and Upstash Redis (section 1.5). Verification and per-token rate limit activate automatically when their env vars are present.
+
+Sections marked **[Optional]** are only needed for Full mode.
+
 ## 1. One-time setup
 
-### 1.1 Cloudflare Turnstile
+### 1.1 Cloudflare Turnstile [Optional]
 
 1. <https://dash.cloudflare.com/?to=/:account/turnstile> → **Add site**.
 2. Site name: `kyro-hackathon-mcp`. Domains: leave broad (`*.vercel.app`) during initial deploy, then tighten to the actual Vercel domain.
 3. Widget mode: **Managed**.
-4. Copy `Site Key` and `Secret Key`.
+4. Copy `Site Key` and `Secret Key`. Set `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` in Doppler. Leave both unset to disable Turnstile entirely.
 
 ### 1.2 Doppler
 
@@ -19,6 +28,8 @@ doppler setup --project kyro-hackathon-mcp --config prd
 ```
 
 Set the secrets (from `kyro-frontend/prd` for the Supabase keys, freshly generated for the rest):
+
+Required env (Simple mode):
 
 ```bash
 doppler secrets set --project kyro-hackathon-mcp --config prd \
@@ -32,12 +43,21 @@ doppler secrets set --project kyro-hackathon-mcp --config prd \
   REGISTRATION_OPEN='true' \
   OAUTH_PROVIDERS='apple,google,kakao,email' \
   CRON_SECRET='<openssl rand -base64 32>' \
-  NEXT_PUBLIC_TURNSTILE_SITE_KEY='<from Cloudflare>' \
-  TURNSTILE_SECRET_KEY='<from Cloudflare>' \
   NEXT_PUBLIC_BASE_URL='https://kyro-hackathon-mcp.vercel.app'
 ```
 
-Upstash variables (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`) are added automatically when you provision Upstash via the Vercel Marketplace — they do not need to live in Doppler.
+Optional env for Full mode:
+
+```bash
+# Turnstile — leave unset to skip the bot-check gate
+NEXT_PUBLIC_TURNSTILE_SITE_KEY='<from Cloudflare>'
+TURNSTILE_SECRET_KEY='<from Cloudflare>'
+
+# Upstash — added automatically when you provision via Vercel Marketplace.
+# When absent, rate limit is fail-open (no app-level limit enforced).
+# UPSTASH_REDIS_REST_URL=...
+# UPSTASH_REDIS_REST_TOKEN=...
+```
 
 ### 1.3 GitHub
 
@@ -51,7 +71,9 @@ Unarchive the repo if archived: <https://github.com/Project-KYRO/kyro-hackathon-
 4. **Settings → Environment Variables**: verify the values from Doppler appear. Add `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` here once Upstash is provisioned (step 1.5).
 5. **Deploy**. Confirm the cron in **Settings → Cron Jobs** shows `/api/cron/auto-revoke` running hourly.
 
-### 1.5 Upstash Redis
+### 1.5 Upstash Redis [Optional]
+
+Skip in Simple mode. To enable per-token rate limit (60/min + 5,000/day):
 
 1. Vercel project → **Integrations** → search "Upstash" → **Add Database**.
 2. Region: **Singapore**. Plan: Free is fine for a single event.

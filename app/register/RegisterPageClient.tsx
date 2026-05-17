@@ -55,6 +55,7 @@ export function RegisterPageClient({
   const [hasSession, setHasSession] = useState(false);
   const turnstileRef = useRef<HTMLDivElement | null>(null);
   const turnstileWidgetId = useRef<string | null>(null);
+  const turnstileEnabled = !!turnstileSiteKey;
 
   // Detect a returning session from OAuth/email callback.
   useEffect(() => {
@@ -109,7 +110,7 @@ export function RegisterPageClient({
   }, [turnstileSiteKey]);
 
   useEffect(() => {
-    if (step === 'gate') {
+    if (step === 'gate' && turnstileEnabled) {
       const t = setInterval(() => {
         if (window.turnstile) {
           mountTurnstile();
@@ -118,7 +119,7 @@ export function RegisterPageClient({
       }, 100);
       return () => clearInterval(t);
     }
-  }, [step, mountTurnstile]);
+  }, [step, mountTurnstile, turnstileEnabled]);
 
   async function signIn(provider: Provider) {
     setError(null);
@@ -162,7 +163,7 @@ export function RegisterPageClient({
       setError('Enter the event passcode from the organizer.');
       return;
     }
-    if (!turnstileToken) {
+    if (turnstileEnabled && !turnstileToken) {
       setError('Complete the bot-check first.');
       return;
     }
@@ -174,14 +175,17 @@ export function RegisterPageClient({
       const accessToken = sess.session?.access_token;
       if (!accessToken) throw new Error('Session expired. Please sign in again.');
 
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${accessToken}`,
+        'x-event-passcode': passcode.trim(),
+      };
+      if (turnstileEnabled && turnstileToken) {
+        headers['x-turnstile-token'] = turnstileToken;
+      }
       const res = await fetch('/api/auth/issue-pat', {
         method: 'POST',
         credentials: 'same-origin',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'x-event-passcode': passcode.trim(),
-          'x-turnstile-token': turnstileToken,
-        },
+        headers,
       });
       const payload = await res.json();
       if (!res.ok) {
@@ -213,7 +217,13 @@ export function RegisterPageClient({
 
   return (
     <>
-      <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer />
+      {turnstileEnabled && (
+        <Script
+          src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+          async
+          defer
+        />
+      )}
       <main style={mainStyle}>
         <h1 style={{ fontSize: 28, marginBottom: 8 }}>KYRO Hackathon — Token</h1>
         <p style={{ color: '#a1a1aa', marginBottom: 24, fontSize: 14 }}>
@@ -337,7 +347,9 @@ export function RegisterPageClient({
               style={{ ...inputStyle, letterSpacing: 2, fontFamily: 'monospace' }}
             />
 
-            <div style={{ marginTop: 20 }} ref={turnstileRef} />
+            {turnstileEnabled && (
+              <div style={{ marginTop: 20 }} ref={turnstileRef} />
+            )}
 
             <label style={consentLabelStyle}>
               <input
@@ -358,8 +370,18 @@ export function RegisterPageClient({
 
             <button
               onClick={issueToken}
-              disabled={busy || !consent || !passcode || !turnstileToken}
-              style={primaryBtnStyle(busy || !consent || !passcode || !turnstileToken)}
+              disabled={
+                busy ||
+                !consent ||
+                !passcode ||
+                (turnstileEnabled && !turnstileToken)
+              }
+              style={primaryBtnStyle(
+                busy ||
+                  !consent ||
+                  !passcode ||
+                  (turnstileEnabled && !turnstileToken),
+              )}
             >
               {busy ? 'Issuing…' : 'Issue my token'}
             </button>

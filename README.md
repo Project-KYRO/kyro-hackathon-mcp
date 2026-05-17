@@ -56,7 +56,7 @@ You have three options, in order of preference:
 ## Safety / limits
 
 - Everything is **read-only**. KYRO data cannot be modified or deleted through this API.
-- Per-token rate limit: **60 requests/minute**, **5,000 requests/day**.
+- Per-token rate limit: **60 requests/minute**, **5,000 requests/day** when the deployment is provisioned with Upstash. Without it, please be reasonable — abusive tokens are revoked manually.
 - Tokens expire automatically after the event window closes.
 - HR / cadence / photos / raw GPS sample files are **not** exposed (Garmin Developer Program compliance + privacy).
 - All anonymized trace records are k-anonymized and unlinkable to users.
