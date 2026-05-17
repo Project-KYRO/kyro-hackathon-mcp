@@ -47,11 +47,13 @@ Read-only data API + MCP server for KYRO hackathon participants. Build whatever 
 
 ### Apple Hide-My-Email users
 
-You have three options, in order of preference:
+The Apple **web** sign-in button is disabled for this event (the KYRO app uses native Apple Sign-In, which doesn't auto-extend to the web). Use the email magic-link path:
 
-1. **Use the "Continue with Apple" button** on the register page (recommended — same provider as the KYRO app, no email lookup needed).
-2. If the Apple button doesn't work for you: enter your `@privaterelay.appleid.com` address in the email field. Find it at: iPhone Settings → your name → Sign In & Security → Sign in with Apple → KYRO. Apple forwards the sign-in email to your real inbox.
-3. As a last resort, ask an organizer to issue a token by user ID.
+1. Find your relay address on iPhone: **Settings → your name → Sign In & Security → Sign in with Apple → KYRO**. You'll see something like `xxxx@privaterelay.appleid.com`.
+2. Enter that address on the register page under "or with email".
+3. Apple forwards the sign-in email to your real inbox; click the link and finish issuing your token.
+
+If you can't find your relay address, ask an organizer.
 
 ## Safety / limits
 
