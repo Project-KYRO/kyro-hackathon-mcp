@@ -9,7 +9,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "issue-pat": "tsx tools/issue-pat.ts",
-    "kill-switch": "tsx tools/kill-switch.ts"
+    "kill-switch": "tsx tools/kill-switch.ts",
+    "monitor": "tsx tools/monitor.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
